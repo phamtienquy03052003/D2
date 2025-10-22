@@ -3,9 +3,17 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import postRoutes from "./routes/postRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
+import commentRoutes from "./routes/commentRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import searchRoutes from "./routes/searchRoutes.js";
 
 // Load env
 dotenv.config();
@@ -14,6 +22,16 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const httpServer = createServer(app);
+
+// Socket.IO setup
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+app.set("io", io);
 
 // Security
 app.use(helmet()); // bảo vệ header HTTP
@@ -21,25 +39,18 @@ app.use(cors({ origin: "*", credentials: true })); // CORS
 app.use(express.json());
 app.use(morgan("dev")); // log requests
 
-// Rate limiting
-const RATE_LIMIT_WINDOW = parseInt(process.env.RATE_LIMIT_WINDOW_MINUTES || "10");
-const RATE_LIMIT_MAX = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "5");
-const limiter = rateLimit({
-  windowMs: RATE_LIMIT_WINDOW * 60 * 1000,
-  max: RATE_LIMIT_MAX,
-  message: {
-    success: false,
-    message: `Quá nhiều yêu cầu. Vui lòng thử lại sau ${RATE_LIMIT_WINDOW} phút.`,
-  },
-});
-app.use("/api", limiter);
-
 // Routes
 app.get("/", (req, res) => {
   res.send("Backend API is running...");
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/communities", communityRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/search", searchRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -50,8 +61,23 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Server
-const PORT = process.env.PORT;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running securely on port ${PORT}`);
+// Socket.IO connection
+io.on("connection", (socket) => {
+  console.log("🔌 User connected:", socket.id);
+
+  socket.on("joinPost", (postId) => {
+    socket.join(postId);
+    console.log(`${socket.id} joined post ${postId}`);
+  });
+
+  socket.on("joinUser", (userId) => {
+    socket.join(userId);
+    console.log(`${socket.id} joined user room ${userId}`);
+  });
+
+  socket.on("disconnect", () => console.log("Disconnected:", socket.id));
 });
+
+// Server
+const PORT = process.env.PORT || 5000;
+httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
