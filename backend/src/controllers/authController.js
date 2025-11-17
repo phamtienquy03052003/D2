@@ -204,7 +204,7 @@ export const forgotPassword = async (req, res) => {
       { expiresIn: process.env.RESET_TOKEN_EXPIRES_IN }
     );
 
-    const resetLink = `${process.env.FRONTEND_URL}/datlaimatkhau?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL}/dat-lai-mat-khau?token=${resetToken}`;
     await sendResetEmail(email, resetLink);
 
     res.status(200).json({ message: "Đã gửi email đặt lại mật khẩu" });

@@ -56,8 +56,7 @@ apiClient.interceptors.response.use(
         console.error("Refresh token error:", refreshError);
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        window.location.href = "/dangnhap";
+        window.location.href = "/trang-chu";
       }
     }
 

@@ -3,12 +3,12 @@ import { register, login, refreshToken, logout, googleLogin, forgotPassword, res
 
 const router = express.Router();
 
-router.post("/dangky", register);
-router.post("/dangnhap", login);
+router.post("/register", register);
+router.post("/login", login);
 router.post("/google", googleLogin);
 router.post("/refresh", refreshToken);
-router.post("/dangxuat", logout);
-router.post("/quenmatkhau", forgotPassword);
-router.post("/datlaimatkhau", resetPassword);
+router.post("/logout", logout);
+router.post("/forgotPassword", forgotPassword);
+router.post("/resetPassword", resetPassword);
 
 export default router;

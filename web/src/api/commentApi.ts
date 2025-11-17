@@ -1,7 +1,8 @@
 import apiClient from "./apiClient";
 
 export const commentApi = {
-  getAll: () => apiClient.get("/comments"),
+  getAll: () => apiClient.get("/comments/admin"),
+  adminDelete: (commentId: string) => apiClient.delete(`/comments/admin/${commentId}`),
 
   getByPost: (postId: string) => apiClient.get(`/comments/${postId}`),
   create: (postId: string, data: { content: string; parentComment?: string }) => apiClient.post(`/comments/${postId}`, data),

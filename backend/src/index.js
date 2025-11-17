@@ -5,8 +5,9 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import rateLimit from "express-rate-limit";
+import path from "path";
 import connectDB from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
@@ -14,17 +15,16 @@ import communityRoutes from "./routes/communityRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import searchRoutes from "./routes/searchRoutes.js";
+import pointRoutes from "./routes/pointRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 
-// Load env
 dotenv.config();
-
-// Kết nối csdl
 connectDB();
 
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.IO setup
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
@@ -33,15 +33,25 @@ const io = new Server(httpServer, {
 });
 app.set("io", io);
 
-// Security
-app.use(helmet()); // bảo vệ header HTTP
-app.use(cors({ origin: "*", credentials: true })); // CORS
+// Bảo mật & cấu hình cơ bản
+app.use(helmet());
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
-app.use(morgan("dev")); // log requests
+app.use(morgan("dev"));
+
+// Cấu hình truy cập thư mục chứa ảnh upload
+app.use(
+  "/uploads",
+  express.static(path.join(process.cwd(), "src/assets/uploads"), {
+    setHeaders: (res, path, stat) => {
+      res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    },
+  })
+);
 
 // Routes
 app.get("/", (req, res) => {
-  res.send("Backend API is running...");
+  res.send("Backend API đang chạy...");
 });
 
 app.use("/api/auth", authRoutes);
@@ -51,33 +61,33 @@ app.use("/api/communities", communityRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/points", pointRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/reports", reportRoutes);
 
-// Global error handler
+// Xử lý lỗi chung
 app.use((err, req, res, next) => {
   console.error("Error Handler:", err.stack);
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || "Lỗi server nội bộ",
+    message: err.message || "Lỗi máy chủ nội bộ",
   });
 });
 
-// Socket.IO connection
+// Socket.IO
 io.on("connection", (socket) => {
-  console.log("🔌 User connected:", socket.id);
+  console.log("Người dùng kết nối:", socket.id);
 
   socket.on("joinPost", (postId) => {
     socket.join(postId);
-    console.log(`${socket.id} joined post ${postId}`);
   });
 
   socket.on("joinUser", (userId) => {
     socket.join(userId);
-    console.log(`${socket.id} joined user room ${userId}`);
   });
 
-  socket.on("disconnect", () => console.log("Disconnected:", socket.id));
+  socket.on("disconnect", () => console.log("Ngắt kết nối:", socket.id));
 });
 
-// Server
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+httpServer.listen(PORT, () => console.log(`Server đang chạy trên cổng ${PORT}`));

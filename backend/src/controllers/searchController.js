@@ -8,12 +8,14 @@ export const fullTextSearch = async (req, res) => {
     if (!q?.trim()) return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
 
     const [posts, communities, users] = await Promise.all([
-      Post.find({ $text: { $search: q } })
+      Post.find({ $text: { $search: q }, status: "active" })
         .select("title author community createdAt")
         .populate("author", "name email")
         .populate("community", "name")
         .limit(10),
-      Community.find({ $text: { $search: q } }).select("name description").limit(10),
+      Community.find({ $text: { $search: q }, status: "active" })
+        .select("name description")
+        .limit(10),
       User.find({ $text: { $search: q } }).select("name email").limit(10),
     ]);
 
