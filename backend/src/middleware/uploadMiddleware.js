@@ -34,5 +34,10 @@ const fileFilter = (req, file, cb) => {
 const limits = { fileSize: 5 * 1024 * 1024 };
 
 // Export middleware riêng biệt
+// Export middleware riêng biệt
 export const uploadUserAvatar = multer({ storage: createStorage(avatarDir, "user"), fileFilter, limits });
 export const uploadCommunityAvatar = multer({ storage: createStorage(communityAvatarDir, "community"), fileFilter, limits });
+
+const postImagesDir = path.join(process.cwd(), "src/assets/uploads/posts");
+if (!fs.existsSync(postImagesDir)) fs.mkdirSync(postImagesDir, { recursive: true });
+export const uploadPostImages = multer({ storage: createStorage(postImagesDir, "post"), fileFilter, limits });

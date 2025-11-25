@@ -35,6 +35,26 @@ export const communityService = {
     return data as Community[];
   },
 
+  async getRestrictedUsers(communityIds?: string[]): Promise<
+    {
+      communityId: string;
+      communityName: string;
+      restrictedUsers: User[];
+    }[]
+  > {
+    const data = await communityApi.getRestrictedUsers(communityIds);
+    return data as {
+      communityId: string;
+      communityName: string;
+      restrictedUsers: User[];
+    }[];
+  },
+
+  async getRecentCommunities(): Promise<Community[]> {
+    const data = await communityApi.getRecentCommunities();
+    return data as Community[];
+  },
+
   async create(payload: { name: string; description: string }): Promise<Community> {
     const data = await communityApi.create(payload);
     return data as Community;
@@ -75,8 +95,8 @@ export const communityService = {
     return data as { isMember: boolean };
   },
 
-  async removeMember(communityId: string, memberId: string): Promise<void> {
-    await communityApi.removeMember(communityId, memberId);
+  async restrictMember(communityId: string, memberId: string): Promise<void> {
+    await communityApi.restrictMember(communityId, memberId);
   },
 
   async getPendingMembers(communityId: string): Promise<PendingMembersResponse> {
@@ -104,6 +124,11 @@ export const communityService = {
 
   async adminDelete(id: string): Promise<void> {
     await communityApi.adminDelete(id);
+  },
+
+  async toggleNotification(id: string): Promise<{ isSubscribed: boolean }> {
+    const data = await communityApi.toggleNotification(id);
+    return data as { isSubscribed: boolean };
   },
 };
 

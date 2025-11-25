@@ -7,10 +7,10 @@ interface PostTypeTabsProps {
 
 const PostTypeTabs: React.FC<PostTypeTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
-    { id: "text" as const, label: "text" },
-    { id: "media" as const, label: "Images & Video" },
-    { id: "link" as const, label: "link" },
-    { id: "poll" as const, label: "poll" },
+    { id: "text" as const, label: "Bài viết" },
+    { id: "media" as const, label: "Hình ảnh" },
+    { id: "link" as const, label: "Liên kết" },
+    { id: "poll" as const, label: "Bình chọn" },
   ];
 
   return (
@@ -20,11 +20,10 @@ const PostTypeTabs: React.FC<PostTypeTabsProps> = ({ activeTab, onTabChange }) =
           key={tab.id}
           type="button"
           onClick={() => onTabChange(tab.id)}
-          className={`px-4 py-2 border-b-2 capitalize ${
-            activeTab === tab.id
-              ? "border-blue-500 text-blue-600"
-              : "border-transparent hover:text-gray-800"
-          }`}
+          className={`px-4 py-2 border-b-2 ${activeTab === tab.id
+            ? "border-blue-500 text-blue-600"
+            : "border-transparent hover:text-gray-800"
+            }`}
         >
           {tab.label}
         </button>

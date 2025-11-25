@@ -38,7 +38,11 @@ const UserProfilePage: React.FC = () => {
           setPrivateError(resPosts.message || "Người dùng này đang bật chế độ riêng tư.");
           setPosts([]);
         } else {
-          setPosts(resPosts?.posts || []);
+          // Chỉ lấy các bài viết có status là "active"
+          const activePosts = (resPosts?.posts || []).filter(
+            (post: Post) => post.status === "active"
+          );
+          setPosts(activePosts);
         }
       } catch (err) {
         console.error("Lỗi khi tải dữ liệu user hoặc bài viết:", err);
@@ -59,6 +63,7 @@ const UserProfilePage: React.FC = () => {
     try {
       await postService.delete(deleteId);
       setPosts((prev) => prev.filter((p) => p._id !== deleteId));
+      window.dispatchEvent(new CustomEvent("recentPostsUpdated", { detail: deleteId }));
     } catch (err) {
       console.error(err);
     } finally {
@@ -78,8 +83,8 @@ const UserProfilePage: React.FC = () => {
   // 👉 Rút gọn formatNumber
   const formatNumber = (num: number) =>
     num >= 1_000_000 ? (num / 1_000_000).toFixed(1) + "M" :
-    num >= 1_000 ? (num / 1_000).toFixed(1) + "k" :
-    num.toString();
+      num >= 1_000 ? (num / 1_000).toFixed(1) + "k" :
+        num.toString();
 
   // 👉 Rút gọn timeAgo từ logic cũ
   const timeAgo = (date: string) => {
@@ -100,16 +105,20 @@ const UserProfilePage: React.FC = () => {
       </div>
     );
 
-  const filteredPosts = posts.filter((post) =>
-    post.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPosts = posts.filter((post) => {
+    // Đảm bảo chỉ hiển thị bài viết active và match với search term
+    return (
+      post.status === "active" &&
+      post.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  });
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header onLoginClick={() => {}} onRegisterClick={() => {}} onToggleSidebar={toggleSidebar} />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className="flex flex-1">
-        <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} activeItem="" onItemClick={() => {}} />
+        <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar} activeItem="" onItemClick={() => { }} />
 
         <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 lg:ml-[calc(128px+16rem)]">
           <div className="flex gap-6">

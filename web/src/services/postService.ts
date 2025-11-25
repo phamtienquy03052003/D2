@@ -21,8 +21,8 @@ export interface CreatePostResponse {
 }
 
 export const postService = {
-  async getAll(): Promise<Post[]> {
-    const res = await postApi.getAll();
+  async getAll(sort?: string): Promise<Post[]> {
+    const res = await postApi.getAll({ sort });
     return normalizeList(res.data);
   },
 
@@ -60,8 +60,9 @@ export const postService = {
     await postApi.delete(id);
   },
 
-  async vote(id: string, type: "upvote" | "downvote"): Promise<void> {
-    await postApi.vote(id, type);
+  async vote(id: string, type: "upvote" | "downvote"): Promise<{ upvotes: string[]; downvotes: string[] }> {
+    const res = await postApi.vote(id, type);
+    return res.data;
   },
 
   async deleteByAdmin(id: string): Promise<void> {
@@ -74,13 +75,31 @@ export const postService = {
   },
 
   async getRemovedForModeration(communityIds?: string[]): Promise<Post[]> {
-    const res = await postApi.getRemovedForModeration(communityIds);
-    return normalizeList(res.data);
-  },
+    const res = await postApi.getRemovedForModeration(communityIds);
+    return normalizeList(res.data);
+  },
 
-  async getEditedForModeration(communityIds?: string[]): Promise<Post[]> {
-    const res = await postApi.getEditedForModeration(communityIds);
-    return normalizeList(res.data);
-  },
+  async getEditedForModeration(communityIds?: string[]): Promise<Post[]> {
+    const res = await postApi.getEditedForModeration(communityIds);
+    return normalizeList(res.data);
+  },
+
+  async save(id: string): Promise<void> {
+    await postApi.save(id);
+  },
+
+  async unsave(id: string): Promise<void> {
+    await postApi.unsave(id);
+  },
+
+  async getSavedPosts(): Promise<Post[]> {
+    const res = await postApi.getSavedPosts();
+    return normalizeList(res.data);
+  },
+
+  async getRecentPosts(): Promise<Post[]> {
+    const res = await postApi.getRecentPosts();
+    return normalizeList(res.data);
+  },
 };
 

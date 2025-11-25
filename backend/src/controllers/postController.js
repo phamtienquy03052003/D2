@@ -14,22 +14,32 @@ export const createPost = async (req, res) => {
 
     let community = null;
     if (communityId) {
-      community = await Community.findById(communityId).select("status postApprovalRequired");
+      community = await Community.findById(communityId).select("status postApprovalRequired notificationSubscribers name");
       if (!community) return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
       if (community.status === "removed") return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
     }
 
     const postStatus = community && community.postApprovalRequired ? "pending" : "active";
 
+    // Xử lý ảnh upload
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      imageUrls = req.files.map(file => `/uploads/posts/${file.filename}`);
+    } else if (image) {
+      // Backward compatibility or direct URL
+      imageUrls = [image];
+    }
+
     const newPost = new Post({
       title,
       content,
-      image,
+      image: imageUrls.length > 0 ? imageUrls[0] : null, // Giữ field cũ cho tương thích
+      images: imageUrls,
       community: community ? community._id : null,
       author: req.user.id,
       status: postStatus,
       approvedAt: postStatus === "active" ? new Date() : null,
-      isEdited: false, // Chuẩn
+      isEdited: false,
     });
 
     await newPost.save();
@@ -42,6 +52,29 @@ export const createPost = async (req, res) => {
       // Nếu bài thuộc cộng đồng -> bắn vào room cộng đồng, nếu không -> bắn vào room chung hoặc follower
       const room = communityId ? communityId : "global";
       io.to(room).emit("newPost", populatedPost);
+
+      // --- LOGIC MỚI: GỬI THÔNG BÁO CHO NGƯỜI ĐĂNG KÝ ---
+      if (community && community.notificationSubscribers && community.notificationSubscribers.length > 0) {
+        const subscribers = community.notificationSubscribers.filter(
+          (subId) => subId.toString() !== req.user.id
+        );
+
+        for (const subId of subscribers) {
+          const notification = new Notification({
+            user: subId, // Người nhận
+            sender: req.user.id,
+            type: "new_post_in_community",
+            post: newPost._id,
+            community: communityId,
+            message: `đã đăng một bài viết mới trong ${community.name}`,
+          });
+          await notification.save();
+
+          const populatedNotif = await notification.populate("sender", "name avatar");
+          io.to(subId.toString()).emit("newNotification", populatedNotif);
+        }
+      }
+      // ---------------------------------------------------
     }
 
     // --- XỬ LÝ ĐIỂM THƯỞNG (Giữ nguyên logic của bạn) ---
@@ -82,10 +115,10 @@ export const createPost = async (req, res) => {
       bonusPoint,
     });
   } catch (err) {
+    console.error("Lỗi createPost:", err);
     res.status(500).json({ message: err.message });
   }
 };
-
 
 // Lấy tất cả bài đăng
 export const getAllPosts = async (req, res) => {
@@ -93,6 +126,108 @@ export const getAllPosts = async (req, res) => {
     const filter = { status: "active" };
     if (req.query.community) filter.community = req.query.community;
 
+    const sortOption = req.query.sort || "new"; // Default sort by new
+
+    if (sortOption === "top") {
+      const posts = await Post.aggregate([
+        { $match: { ...filter, status: "active" } },
+        {
+          $addFields: {
+            voteScore: {
+              $subtract: [{ $size: "$upvotes" }, { $size: "$downvotes" }]
+            }
+          }
+        },
+        { $sort: { voteScore: -1, createdAt: -1 } },
+        { $lookup: { from: "users", localField: "author", foreignField: "_id", as: "author" } },
+        { $lookup: { from: "communities", localField: "community", foreignField: "_id", as: "community" } },
+        { $unwind: "$author" },
+        { $unwind: { path: "$community", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            "author.password": 0,
+            "author.savedPosts": 0,
+            "author.recentPosts": 0
+          }
+        }
+      ]);
+      return res.json(posts);
+
+    } else if (sortOption === "hot") {
+      const posts = await Post.aggregate([
+        { $match: { ...filter, status: "active" } },
+        {
+          $lookup: {
+            from: "comments",
+            localField: "_id",
+            foreignField: "post",
+            as: "comments"
+          }
+        },
+        {
+          $addFields: {
+            voteScore: { $subtract: [{ $size: "$upvotes" }, { $size: "$downvotes" }] },
+            commentCount: { $size: "$comments" }
+          }
+        },
+        {
+          $addFields: {
+            hotScore: { $add: ["$voteScore", "$commentCount"] }
+          }
+        },
+        { $sort: { hotScore: -1, createdAt: -1 } },
+        { $lookup: { from: "users", localField: "author", foreignField: "_id", as: "author" } },
+        { $lookup: { from: "communities", localField: "community", foreignField: "_id", as: "community" } },
+        { $unwind: "$author" },
+        { $unwind: { path: "$community", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            "author.password": 0,
+            "author.savedPosts": 0,
+            "author.recentPosts": 0,
+            "comments": 0
+          }
+        }
+      ]);
+      return res.json(posts);
+
+    } else if (sortOption === "best") {
+      const posts = await Post.aggregate([
+        { $match: { ...filter, status: "active" } },
+        {
+          $addFields: {
+            totalVotes: { $add: [{ $size: "$upvotes" }, { $size: "$downvotes" }] },
+            upvoteCount: { $size: "$upvotes" }
+          }
+        },
+        {
+          $addFields: {
+            ratio: {
+              $cond: [
+                { $eq: ["$totalVotes", 0] },
+                0,
+                { $divide: ["$upvoteCount", "$totalVotes"] }
+              ]
+            }
+          }
+        },
+        { $sort: { ratio: -1, totalVotes: -1, createdAt: -1 } },
+        { $lookup: { from: "users", localField: "author", foreignField: "_id", as: "author" } },
+        { $lookup: { from: "communities", localField: "community", foreignField: "_id", as: "community" } },
+        { $unwind: "$author" },
+        { $unwind: { path: "$community", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            "author.password": 0,
+            "author.savedPosts": 0,
+            "author.recentPosts": 0
+          }
+        }
+      ]);
+      return res.json(posts);
+    }
+
+    // Default: New
     const posts = await Post.find(filter)
       .populate("author", "name email avatar")
       .populate("community", "name")
@@ -108,10 +243,25 @@ export const getAllPosts = async (req, res) => {
 // Lấy bài đăng theo id
 export const getPostById = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate("author", "name email avatar");
+    const post = await Post.findById(req.params.id).populate("author", "name email avatar").populate("community", "name");
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
     if (post.status === "removed" || post.status === "rejected")
       return res.status(410).json({ message: "Bài đăng không khả dụng" });
+
+    // --- LOGIC MỚI: LƯU LỊCH SỬ XEM ---
+    if (req.user && req.user.id) {
+      const userId = req.user.id;
+      // Chỉ lưu nếu người xem không phải tác giả (tùy chọn, ở đây cứ lưu hết)
+      // Tìm user và update
+      await User.findByIdAndUpdate(userId, {
+        $pull: { recentPosts: post._id }, // Xóa nếu đã có (để đẩy lên đầu)
+      });
+      await User.findByIdAndUpdate(userId, {
+        $push: { recentPosts: { $each: [post._id], $position: 0, $slice: 10 } }, // Thêm vào đầu, giữ max 10
+      });
+    }
+    // ----------------------------------
+
     res.json(post);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -226,17 +376,23 @@ export const deletePost = async (req, res) => {
       return res.status(403).json({ message: "Chưa xác thực" });
 
     const removalTime = new Date();
-    
+
     // Cập nhật bài post
     post.status = "removed";
     post.removedBy = req.user.id; // Ghi nhận người xóa là TÁC GIẢ
     post.removedAt = removalTime;
     await post.save();
-    
+
     // Cập nhật các comment liên quan
     await Comment.updateMany(
-      { post: post._id }, 
+      { post: post._id },
       { status: "removed", removedBy: req.user.id, removedAt: removalTime }
+    );
+
+    // Xóa khỏi lịch sử xem của tất cả user
+    await User.updateMany(
+      { recentPosts: post._id },
+      { $pull: { recentPosts: post._id } }
     );
 
     res.json({ message: "Bài đăng đã được đánh dấu xóa" });
@@ -276,227 +432,191 @@ export const votePost = async (req, res) => {
 
     await post.save();
 
+    // Realtime update vote count
     const io = req.app.get("io");
-    io.emit("updatePostVote", {
-      postId: post._id,
+    io.to(post._id.toString()).emit("updatePostVote", {
+      _id: post._id,
       upvotes: post.upvotes,
       downvotes: post.downvotes,
     });
 
-    res.json(post);
+    res.json({ message: "Vote thành công", upvotes: post.upvotes, downvotes: post.downvotes });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Lấy bài viết chờ duyệt cho creator
+// Lấy danh sách bài chờ duyệt (cho admin/moderator)
 export const getPendingPostsForModeration = async (req, res) => {
   try {
-    const communitiesParam = req.query.communities || "";
-    const requestedIds = communitiesParam
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => mongoose.Types.ObjectId.isValid(id));
-
-    const ownedCommunities = await Community.find({
-      creator: req.user.id,
-      status: "active",
-      postApprovalRequired: true,
-    }).select("_id name postApprovalRequired");
-
-    if (!ownedCommunities.length) return res.json([]);
-
-    const allowedIds = ownedCommunities
-      .filter((c) => requestedIds.length === 0 || requestedIds.includes(c._id.toString()))
-      .map((c) => c._id);
-
-    if (!allowedIds.length) return res.json([]);
-
-    const posts = await Post.find({
-      status: "pending",
-      community: { $in: allowedIds },
-    })
-      .populate("author", "name avatar email")
-      .populate("community", "name postApprovalRequired");
+    const posts = await Post.find({ status: "pending" })
+      .populate("author", "name email avatar")
+      .populate("community", "name")
+      .sort({ createdAt: 1 }); // Cũ nhất lên đầu
 
     res.json(posts);
   } catch (err) {
-    console.error("Lỗi getPendingPostsForModeration:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Duyệt / Từ chối bài viết
+// Duyệt bài (Approve / Reject)
 export const moderatePost = async (req, res) => {
   try {
-    const { action } = req.body;
-    if (!["approve", "reject"].includes(action))
-      return res.status(400).json({ message: "Hành động không hợp lệ" });
-
-    const post = await Post.findById(req.params.id).populate(
-      "community",
-      "creator status postApprovalRequired"
-    );
+    const { action } = req.body; // 'approve' | 'reject'
+    const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
-    if (post.status !== "pending")
-      return res.status(400).json({ message: "Bài viết không ở trạng thái chờ duyệt" });
-    if (!post.community)
-      return res.status(400).json({ message: "Bài viết cá nhân không cần xét duyệt" });
-    if (post.community.status === "removed")
-      return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
-    if (!post.community.postApprovalRequired)
-      return res.status(400).json({ message: "Cộng đồng này không bật xét duyệt" });
-    if (post.community.creator.toString() !== req.user.id)
-      return res.status(403).json({ message: "Không có quyền xét duyệt bài viết này" });
 
     if (action === "approve") {
       post.status = "active";
       post.approvedAt = new Date();
-      post.isEdited = false; // Reset cờ edit khi duyệt
-    } else {
+    } else if (action === "reject") {
       post.status = "rejected";
-      post.approvedAt = null;
+    } else {
+      return res.status(400).json({ message: "Hành động không hợp lệ" });
     }
 
     await post.save();
 
-    res.json({
-      message: action === "approve" ? "Đã duyệt bài viết" : "Đã từ chối bài viết",
-      post,
-    });
+    // Realtime báo cho tác giả hoặc reload list
+    const io = req.app.get("io");
+    io.emit("postModerated", { postId: post._id, status: post.status });
+
+    res.json({ message: `Đã ${action} bài viết`, post });
   } catch (err) {
-    console.error("Lỗi moderatePost:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Xóa bài đăng + comment liên quan (ADMIN/MOD XÓA)
+// Admin xóa bài viết (Xóa hẳn khỏi DB hoặc soft delete)
 export const adminDeletePost = async (req, res) => {
   try {
-    const postId = req.params.id;
-
-    const post = await Post.findById(postId);
+    const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
 
-    const removalTime = new Date();
-    
-    // Cập nhật bài post
-    post.status = "removed";
-    post.removedBy = req.user.id; // Ghi nhận người xóa là ADMIN/MOD
-    post.removedAt = removalTime;
-    await post.save();
-    
-    // Cập nhật các comment liên quan
-    await Comment.updateMany(
-      { post: post._id }, 
-      { status: "removed", removedBy: req.user.id, removedAt: removalTime }
+    // Xóa bài viết
+    await Post.findByIdAndDelete(req.params.id);
+
+    // Xóa comment liên quan
+    await Comment.deleteMany({ post: req.params.id });
+
+    // Xóa notification liên quan (tùy chọn)
+    await Notification.deleteMany({ post: req.params.id });
+
+    // Xóa khỏi lịch sử xem của tất cả user
+    await User.updateMany(
+      { recentPosts: req.params.id },
+      { $pull: { recentPosts: req.params.id } }
     );
 
-    res.json({
-      message: "Admin đã đánh dấu xóa bài đăng",
-      postId,
-    });
+    res.json({ message: "Đã xóa bài viết vĩnh viễn" });
   } catch (err) {
-    console.error("Lỗi adminDeletePost:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// -----------------------------------------------------------------
-// --- CÁC HÀM MỚI CHO MOD QUEUE ---
-// -----------------------------------------------------------------
-
-/**
- * Lấy danh sách bài viết đã bị xóa của các cộng đồng
- * Dành cho tab "Đã xóa" (Removed) trong Mod Queue
- */
+// Lấy danh sách bài đã bị xóa (để admin xem xét khôi phục hoặc xóa vĩnh viễn)
 export const getRemovedPostsForModeration = async (req, res) => {
   try {
-    const communitiesParam = req.query.communities || "";
-    const requestedIds = communitiesParam
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => mongoose.Types.ObjectId.isValid(id));
-
-    // Tìm các cộng đồng mà user hiện tại là người tạo (Creator)
-    const ownedCommunities = await Community.find({
-      creator: req.user.id,
-      status: "active",
-    }).select("_id");
-
-    if (!ownedCommunities.length) return res.json([]);
-
-    const ownedIds = ownedCommunities.map((c) => c._id.toString());
-    
-    const allowedIds = requestedIds.length > 0
-      ? requestedIds.filter((id) => ownedIds.includes(id))
-      : ownedIds;
-
-    if (!allowedIds.length) return res.json([]);
-
-    // Query bài viết đã xóa
-    const posts = await Post.find({
-      status: "removed",
-      community: { $in: allowedIds },
-    })
-      .populate("author", "name avatar email")     // Người viết bài
-      .populate("removedBy", "name email role")    // Người thực hiện xóa
+    const posts = await Post.find({ status: { $in: ["removed", "rejected"] } })
+      .populate("author", "name email avatar")
       .populate("community", "name")
-      .sort({ removedAt: -1 }); // Sắp xếp theo thời gian xóa mới nhất
+      .populate("removedBy", "name") // Nếu có field này
+      .sort({ updatedAt: -1 });
 
     res.json(posts);
   } catch (err) {
-    console.error("Lỗi getRemovedPostsForModeration:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-/**
- * Lấy danh sách bài viết đã bị chỉnh sửa sau khi duyệt
- * Dành cho tab "Đã chỉnh sửa" (Edited) trong Mod Queue
- */
+// Lấy danh sách bài đã chỉnh sửa (nếu cần duyệt lại)
 export const getEditedPostsForModeration = async (req, res) => {
   try {
-    const communitiesParam = req.query.communities || "";
-    const requestedIds = communitiesParam
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => mongoose.Types.ObjectId.isValid(id));
-
-    // Tìm các cộng đồng mà user hiện tại là người tạo (Creator)
-    const ownedCommunities = await Community.find({
-      creator: req.user.id,
-      status: "active",
-    }).select("_id");
-
-    if (!ownedCommunities.length) return res.json([]);
-
-    const ownedIds = ownedCommunities.map((c) => c._id.toString());
-    
-    const allowedIds = requestedIds.length > 0
-      ? requestedIds.filter((id) => ownedIds.includes(id))
-      : ownedIds;
-
-    if (!allowedIds.length) return res.json([]);
-
-    // Query bài viết:
-    // 1. Đã active
-    // 2. Thuộc cộng đồng quản lý
-    // 3. Có cờ isEdited = true
-    // 4. Thời gian updatedAt > thời gian approvedAt (chỉ lấy bài sửa SAU khi duyệt)
-    const posts = await Post.find({
-      status: "active",
-      community: { $in: allowedIds },
-      isEdited: true,
-      $expr: { $gt: ["$updatedAt", "$approvedAt"] }
-    })
-      .populate("author", "name avatar email")
+    // Giả sử logic là lấy bài active nhưng có isEdited = true
+    // Hoặc nếu hệ thống bắt buộc duyệt lại thì nó đã là pending rồi.
+    // Ở đây trả về các bài active đã từng sửa.
+    const posts = await Post.find({ status: "active", isEdited: true })
+      .populate("author", "name email avatar")
       .populate("community", "name")
-      .sort({ updatedAt: -1 }); // Sắp xếp theo thời gian sửa mới nhất
+      .sort({ updatedAt: -1 });
 
     res.json(posts);
   } catch (err) {
-    console.error("Lỗi getEditedPostsForModeration:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Lưu bài viết
+export const savePost = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.id;
+
+    const user = await User.findById(userId);
+    if (user.savedPosts.includes(postId)) {
+      return res.status(400).json({ message: "Bài viết đã được lưu trước đó" });
+    }
+
+    user.savedPosts.push(postId);
+    await user.save();
+
+    res.json({ message: "Đã lưu bài viết" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Bỏ lưu bài viết
+export const unsavePost = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.id;
+
+    await User.findByIdAndUpdate(userId, {
+      $pull: { savedPosts: postId },
+    });
+
+    res.json({ message: "Đã bỏ lưu bài viết" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Lấy danh sách bài đã lưu
+export const getSavedPosts = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate({
+      path: "savedPosts",
+      populate: [
+        { path: "author", select: "name avatar" },
+        { path: "community", select: "name" },
+      ],
+    });
+
+    // Lọc bỏ các bài null (đã bị xóa)
+    const posts = user.savedPosts.filter((p) => p !== null);
+
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Lấy lịch sử xem gần đây
+export const getRecentPosts = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate({
+      path: "recentPosts",
+      populate: [
+        { path: "author", select: "name avatar" },
+        { path: "community", select: "name" },
+      ],
+    });
+
+    const posts = user.recentPosts.filter((p) => p !== null && p.status === "active");
+    res.json(posts);
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };

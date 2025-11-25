@@ -1,3 +1,4 @@
+//services/userService.ts
 import { userApi } from "../api/userApi";
 import type { User } from "../types/User";
 
@@ -32,6 +33,11 @@ export const userService = {
     return res.data as User[];
   },
 
+  async searchUsers(query: string): Promise<User[]> {
+    const res = await userApi.searchUsers(query);
+    return res.data as User[];
+  },
+
   async adminUpdate(id: string, data: Partial<User>): Promise<User> {
     const res = await userApi.adminUpdate(id, data);
     return res.data as User;
@@ -40,5 +46,6 @@ export const userService = {
   async adminDelete(id: string): Promise<void> {
     await userApi.adminDelete(id);
   },
+  
 };
 

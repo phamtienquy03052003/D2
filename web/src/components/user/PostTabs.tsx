@@ -10,6 +10,9 @@ const PostTabs: React.FC<PostTabsProps> = ({
   activeTab,
   onTabChange,
   tabs = ["Tốt nhất", "Quan tâm nhiều nhất", "Mới nhất", "Hàng đầu"],
+  // Quan tâm nhiều nhất - Comments + Votes
+  // Hàng đầu - Most Upvoted
+  // Tốt nhất - Complex algorithm or similar to Top
 }) => {
   return (
     <div className="bg-white rounded-t sticky top-20 mb-2 z-10">

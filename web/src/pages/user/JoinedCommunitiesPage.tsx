@@ -3,7 +3,6 @@ import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
 import RightSidebar from "../../components/user/RightSidebar";
 import { communityService } from "../../services/communityService";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
 import type { Community } from "../../types/Community";
@@ -15,7 +14,6 @@ const JoinedCommunitiesPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   const fetchCommunities = async () => {
@@ -76,7 +74,7 @@ const JoinedCommunitiesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header onLoginClick={() => {}} onRegisterClick={() => {}} onToggleSidebar={toggleSidebar} />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className="flex flex-1">
         <Sidebar

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
 import RightSidebar from "../../components/user/RightSidebar";
@@ -18,7 +17,6 @@ const CommunitiesPage: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const navigate = useNavigate();
   const { user } = useAuth();
 
   // 🟩 Lấy danh sách cộng đồng + đánh dấu isPending chuẩn
@@ -112,11 +110,7 @@ const CommunitiesPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header
-        onLoginClick={() => {}}
-        onRegisterClick={() => {}}
-        onToggleSidebar={toggleSidebar}
-      />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className="flex flex-1">
         <Sidebar

@@ -10,6 +10,8 @@ const communitySchema = new mongoose.Schema(
     isPrivate: { type: Boolean, default: false },
     isApproval: { type: Boolean, default: false },
     pendingMembers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    restrictedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    notificationSubscribers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     postApprovalRequired: { type: Boolean, default: false },
     status: {
       type: String,

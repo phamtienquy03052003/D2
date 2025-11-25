@@ -1,5 +1,6 @@
 // utils/communityUtils.ts
 import type { Community } from "../types/Community";
+import type { User } from "../types/User";
 
 const BASE_URL = import.meta.env.BACKEND_URL || "http://localhost:8000";
 
@@ -16,15 +17,25 @@ export function isCreator(community: Community, userId: string): boolean {
  * Kiểm tra user có phải member không
  */
 export function isMember(community: Community, userId: string): boolean {
-  return community.members.includes(userId);
+  if (!community.members?.length) return false;
+  if (typeof community.members[0] === "string") {
+    return (community.members as string[]).includes(userId);
+  }
+  return (community.members as User[]).some(u => u._id === userId);
 }
 
 /**
  * Kiểm tra user đang pending không
  */
 export function isPending(community: Community, userId: string): boolean {
-  if (!community.pendingMembers) return false;
-  return community.pendingMembers.includes(userId);
+  if (!community.pendingMembers?.length) return false;
+
+  const first = community.pendingMembers[0];
+  if (typeof first === "string") {
+    return (community.pendingMembers as string[]).includes(userId);
+  }
+
+  return (community.pendingMembers as User[]).some(u => u._id === userId);
 }
 
 /**
@@ -41,4 +52,17 @@ export function getCommunityAvatarUrl(community: Community): string | undefined 
  */
 export function getMembersCount(community: Community): number {
   return community.members.length;
+}
+
+/**
+ * Kiểm tra user có bị restrict không
+ */
+export function isRestricted(community: Community, userId: string): boolean {
+  if (!community.restrictedUsers?.length) return false;
+
+  if (typeof community.restrictedUsers[0] === "string") {
+    return (community.restrictedUsers as string[]).includes(userId);
+  }
+
+  return (community.restrictedUsers as User[]).some(u => u._id === userId);
 }

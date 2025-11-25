@@ -1,12 +1,10 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
 import RightSidebar from "../../components/user/RightSidebar";
 import { authService } from "../../services/authService";
 
 const ForgotPassword: React.FC = () => {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,10 +28,7 @@ const ForgotPassword: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <Header
-        onLoginClick={() => navigate("/login")}
-        onRegisterClick={() => navigate("/register")}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
       <div className="flex flex-1">

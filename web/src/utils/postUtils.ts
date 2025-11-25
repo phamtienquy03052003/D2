@@ -40,5 +40,11 @@ export function getAuthorName(post: Post): string {
  * Kiểm tra bài viết có image
  */
 export function hasImage(post: Post): boolean {
-  return !!post.image;
+  return !!post.image || (!!post.images && post.images.length > 0);
+}
+
+export function getPostImageUrl(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("http") || url.startsWith("blob:")) return url;
+  return `${BASE_URL}${url}`;
 }

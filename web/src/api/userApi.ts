@@ -13,4 +13,5 @@ export const userApi = {
   updatePrivacy: (isPrivate: boolean) => apiClient.put("/users/me/privacy", { isPrivate }),
   adminUpdate: (id: string, data: any) => apiClient.put(`/users/${id}`, data),
   adminDelete: (id: string) => apiClient.delete(`/users/${id}`),
+  searchUsers: (query: string) => apiClient.get(`/users/search`, { params: { q: query } }),
 };

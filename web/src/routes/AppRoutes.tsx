@@ -6,15 +6,20 @@ import CreatePostPage from "../pages/user/CreatePostPage";
 import CommunitiesPage from "../pages/user/CommunitiesPage";
 import CommunityPage from "../pages/user/CommunityPage";
 import JoinedCommunitiesPage from "../pages/user/JoinedCommunitiesPage";
-import ManageCommunity from "../pages/user/ManageCommunity";
+import ManageCommunityPage from "../pages/user/ManageCommunityPage";
 import ModQueuePage from "../pages/user/ModQueuePage";
 import ModMailPage from "../pages/user/ModMailPage";
+import UserModMailPage from "../pages/user/UserModMailPage";
 import RestrictedUsersPage from "../pages/user/RestrictedUsersPage";
 import ProfilePage from "../pages/user/ProfilePage";
 import UpdatePasswordPage from "../pages/user/UpdatePasswordPage";
 import PostDetail from "../pages/user/PostDetail";
 import UserProfilePage from "../pages/user/UserProfilePage";
+import MyPostsPage from "../pages/user/MyPostsPage";
+import SavedPostsPage from "../pages/user/SavedPostsPage";
 import NotificationsPage from "../pages/user/NotificationsPage";
+import ChatPage from "../pages/user/ChatPage";
+import ConversationPage from "../pages/user/ConversationPage";
 
 import ProtectedAdminRoute from "../routes/ProtectedAdminRoute";
 import Dashboard from "../pages/admin/Dashboard";
@@ -35,16 +40,21 @@ export default function AppRoutes() {
       <Route path="/tao-bai-viet" element={<CreatePostPage />} />
       <Route path="/cong-dong" element={<CommunitiesPage />} />
       <Route path="/cong-dong/:id" element={<CommunityPage />} />
-      <Route path="/quan-ly-cong-dong/:id" element={<ManageCommunity />} />
+      <Route path="/quan-ly-cong-dong" element={<ManageCommunityPage />} />
       <Route path="/quan-tri/noi-dung-cho-duyet" element={<ModQueuePage />} />
       <Route path="/quan-tri/hop-thu-quan-tri" element={<ModMailPage />} />
       <Route path="/quan-tri/nguoi-dung-bi-han-che" element={<RestrictedUsersPage />} />
       <Route path="/quan-ly-bao-cao" element={<Navigate to="/quan-tri/noi-dung-cho-duyet" replace />} />
       <Route path="/thong-tin-ca-nhan" element={<ProfilePage />} />
+      <Route path="/bai-viet-cua-toi" element={<MyPostsPage />} />
+      <Route path="/bai-viet-da-luu" element={<SavedPostsPage />} />
+      <Route path="/tin-nhan-cong-dong" element={<UserModMailPage />} />
       <Route path="/doi-mat-khau" element={<UpdatePasswordPage />} />
       <Route path="/cong-dong-da-tham-gia" element={<JoinedCommunitiesPage />} />
       <Route path="/nguoi-dung/:id" element={<UserProfilePage />} />
       <Route path="/thong-bao" element={<NotificationsPage />} />
+      <Route path="/tin-nhan" element={<ChatPage />} />
+      <Route path="/tin-nhan/:conversationId" element={<ConversationPage />} />
 
       <Route
         path="/admin/*"

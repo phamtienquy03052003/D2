@@ -10,7 +10,10 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ["user", "admin"], default: "user", },
     isActive: { type: Boolean, default: true, },
     isPrivate: { type: Boolean, default: false },
-    refreshTokens: [{ type: String,}, ],
+    refreshTokens: [{ type: String, },],
+    savedPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+    recentPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+    recentCommunities: [{ type: mongoose.Schema.Types.ObjectId, ref: "Community" }],
   },
   { timestamps: true }
 );

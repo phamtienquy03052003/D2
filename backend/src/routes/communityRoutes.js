@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken, isAdmin } from "../middleware/authMiddleware.js";
+import { verifyToken, isAdmin, verifyTokenOptional } from "../middleware/authMiddleware.js";
 import {
   createCommunity,
   getCommunities,
@@ -10,7 +10,7 @@ import {
   getPendingMembers,
   rejectMember,
   updatePrivacy,
-  removeMember,
+  restrictMember,
   getUserCommunities,
   getUserCreatedCommunities,
   isUserMemberOfCommunity,
@@ -18,10 +18,14 @@ import {
   deleteCommunity,
   toggleApproval,
   togglePostApproval,
+  getRestrictedUsersForCommunities,
+
+
   adminGetCommunities,
   adminDeleteCommunity,
   adminUpdateCommunity,
-  // getRemovedContent,
+  getRecentCommunities,
+  toggleNotification,
 } from "../controllers/communityController.js";
 
 const router = express.Router();
@@ -36,7 +40,9 @@ router.get("/my-created", verifyToken, getUserCreatedCommunities);
 router.get("/getUser", verifyToken, getUserCommunities);
 
 /*---------------- PENDING ----------------*/
+router.get("/recent/history", verifyToken, getRecentCommunities);
 router.get("/:communityId/pending", verifyToken, getPendingMembers);
+router.get("/restricted-users", verifyToken, getRestrictedUsersForCommunities);
 
 /*---------------- CHECK MEMBER ----------------*/
 router.get("/:id/is-member", verifyToken, async (req, res) => {
@@ -59,13 +65,13 @@ router.post("/", verifyToken, createCommunity);
 
 router.post("/:id/join", verifyToken, joinCommunity);
 router.post("/:id/leave", verifyToken, leaveCommunity);
+router.post("/:id/notification", verifyToken, toggleNotification);
 
 router.post("/:communityId/approve/:memberId", verifyToken, approveMember);
 router.post("/:communityId/reject/:memberId", verifyToken, rejectMember);
-// router.post("/removed-content", verifyToken, getRemovedContent);
 
 router.delete("/:id", verifyToken, deleteCommunity);
-router.delete("/:communityId/member/:memberId", verifyToken, removeMember);
+router.delete("/:communityId/restrict/:memberId", verifyToken, restrictMember);
 
 router.put("/:id", verifyToken, updateCommunity);
 router.put("/:id/privacy", verifyToken, updatePrivacy);
@@ -74,6 +80,6 @@ router.put("/:communityId/post-approval", verifyToken, togglePostApproval);
 
 /*---------------- COMMON ----------------*/
 router.get("/", getCommunities);
-router.get("/:id", getCommunityById);
+router.get("/:id", verifyTokenOptional, getCommunityById);
 
 export default router;

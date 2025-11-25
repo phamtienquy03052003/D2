@@ -3,8 +3,6 @@ import { useParams } from "react-router-dom";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
 import RightSidebar from "../../components/user/RightSidebar";
-import Login from "../../components/user/Login";
-import Register from "../../components/user/Register";
 import EditPostModal from "../../components/user/EditPostModal";
 import ConfirmModal from "../../components/user/ConfirmModal";
 import CommentSection from "../../components/user/CommentSection";
@@ -12,11 +10,8 @@ import { postService } from "../../services/postService";
 import PostCard from "../../components/user/PostCard";
 import type { Post } from "../../types/Post";
 
-type AuthMode = "none" | "login" | "register";
-
 const PostDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [authMode, setAuthMode] = useState<AuthMode>("none");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -37,10 +32,6 @@ const PostDetail: React.FC = () => {
     };
     fetchPost();
   }, [id]);
-
-  const openLogin = () => setAuthMode("login");
-  const openRegister = () => setAuthMode("register");
-  const closeAuth = () => setAuthMode("none");
 
   const handleVote = async (postId: string, type: "upvote" | "downvote") => {
     try {
@@ -114,11 +105,7 @@ const PostDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header
-        onLoginClick={openLogin}
-        onRegisterClick={openRegister}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
         <Sidebar
@@ -156,20 +143,6 @@ const PostDetail: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {authMode === "login" && (
-        <Login
-          onClose={closeAuth}
-          onSwitchToRegister={() => setAuthMode("register")}
-        />
-      )}
-
-      {authMode === "register" && (
-        <Register
-          onClose={closeAuth}
-          onSwitchToLogin={() => setAuthMode("login")}
-        />
-      )}
 
       {editingPost && (
         <EditPostModal

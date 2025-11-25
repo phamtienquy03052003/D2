@@ -43,11 +43,7 @@ const UpdatePasswordPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header
-        onLoginClick={() => {}}
-        onRegisterClick={() => {}}
-        onToggleSidebar={toggleSidebar}
-      />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className="flex flex-1">
         <Sidebar

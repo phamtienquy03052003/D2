@@ -4,10 +4,14 @@ import type { ReactNode } from "react";
 import { io } from "socket.io-client";
 import { userService } from "../services/userService";
 import { pointService } from "../services/pointService";
-import type { User } from "../types/User"; // <-- DÙNG USER CHUẨN
+import type { User } from "../types/User";
+import Login from "../components/user/Login";
+import Register from "../components/user/Register";
 
 // Khởi tạo socket không tự connect
 export const socket = io("http://localhost:8000", { autoConnect: false });
+
+type AuthMode = "none" | "login" | "register";
 
 interface AuthContextType {
   user: User | null;
@@ -16,12 +20,19 @@ interface AuthContextType {
   isAuthenticated: boolean;
   refreshUser: () => Promise<void>;
   handleSocketLogin: (token: string, userId: string) => void;
+
+  // modal
+  authMode: AuthMode;
+  openLogin: () => void;
+  openRegister: () => void;
+  closeAuth: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("none");
 
   const formatUser = async (data: any): Promise<User> => {
     const resPoint = await pointService.getTotal();
@@ -64,10 +75,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     loadUser();
 
-    // Cleanup: remove event listener
     return () => {
       socket.off("connect");
-      // Không return gì khác
     };
   }, []);
 
@@ -96,11 +105,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
+  // Modal handlers
+  const openLogin = () => setAuthMode("login");
+  const openRegister = () => setAuthMode("register");
+  const closeAuth = () => setAuthMode("none");
+
   return (
     <AuthContext.Provider
-      value={{ user, setUser, logout, isAuthenticated: !!user, refreshUser, handleSocketLogin }}
+      value={{
+        user,
+        setUser,
+        logout,
+        isAuthenticated: !!user,
+        refreshUser,
+        handleSocketLogin,
+        authMode,
+        openLogin,
+        openRegister,
+        closeAuth,
+      }}
     >
       {children}
+
+      {/* Render modal ở đây, luôn sẵn */}
+      {authMode === "login" && <Login onClose={closeAuth} onSwitchToRegister={openRegister} />}
+      {authMode === "register" && <Register onClose={closeAuth} onSwitchToLogin={openLogin} />}
     </AuthContext.Provider>
   );
 };

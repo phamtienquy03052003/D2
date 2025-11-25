@@ -18,6 +18,11 @@ import searchRoutes from "./routes/searchRoutes.js";
 import pointRoutes from "./routes/pointRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import conversationRoutes from "./routes/conversationRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
+import modMailRoutes from "./routes/modMailRoutes.js";
+
+import modMailSocket from "./socket/modMailSocket.js";
 
 dotenv.config();
 connectDB();
@@ -64,6 +69,9 @@ app.use("/api/search", searchRoutes);
 app.use("/api/points", pointRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api", modMailRoutes);
 
 // Xử lý lỗi chung
 app.use((err, req, res, next) => {
@@ -73,6 +81,8 @@ app.use((err, req, res, next) => {
     message: err.message || "Lỗi máy chủ nội bộ",
   });
 });
+
+modMailSocket(io);
 
 // Socket.IO
 io.on("connection", (socket) => {

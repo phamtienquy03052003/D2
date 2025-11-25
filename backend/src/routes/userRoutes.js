@@ -7,7 +7,8 @@ import {
   updateProfile,
   updatePassword,
   getUserPublic,
-  updatePrivacy ,
+  updatePrivacy,
+  searchUsers,
 } from "../controllers/userController.js";
 import { verifyToken, isAdmin } from "../middleware/authMiddleware.js";
 
@@ -18,6 +19,7 @@ router.get("/me", verifyToken, getMe);
 router.put("/me", verifyToken, updateProfile);
 router.put("/me/privacy", verifyToken, updatePrivacy);
 router.put("/me/password", verifyToken, updatePassword);
+router.get("/search", verifyToken, searchUsers);
 
 // Lấy thông tin user public
 router.get("/public/:id", getUserPublic);

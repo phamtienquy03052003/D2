@@ -1,5 +1,5 @@
 // pages/user/CommunityPage.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { communityService } from "../../services/communityService";
 import { postService } from "../../services/postService";
@@ -33,11 +33,12 @@ const CommunityPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
 
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [confirmDeleteCommunity, setConfirmDeleteCommunity] = useState(false);
+
+  const [isNotificationEnabled, setIsNotificationEnabled] = useState(false);
 
   const navigate = useNavigate();
 
@@ -55,11 +56,22 @@ const CommunityPage: React.FC = () => {
       setIsCreator(checkIsCreator(data, uid));
       setIsPending(checkIsPending(data, uid));
       setIsMember(checkIsMember(data, uid) || checkIsCreator(data, uid));
+
+      // Check notification status
+      if (data.notificationSubscribers && (data.notificationSubscribers as string[]).includes(uid)) {
+        setIsNotificationEnabled(true);
+      } else {
+        setIsNotificationEnabled(false);
+      }
     } else {
       setIsCreator(false);
       setIsPending(false);
       setIsMember(false);
+      setIsNotificationEnabled(false);
     }
+
+    // Trigger update for Sidebar (recent communities)
+    window.dispatchEvent(new Event("communityUpdated"));
   };
 
   const fetchPosts = async () => {
@@ -113,11 +125,22 @@ const CommunityPage: React.FC = () => {
     }
   };
 
+  const handleToggleNotification = async () => {
+    if (!id) return;
+    try {
+      const res = await communityService.toggleNotification(id);
+      setIsNotificationEnabled(res.isSubscribed);
+      toast.success(res.isSubscribed ? "Đã bật thông báo" : "Đã tắt thông báo");
+    } catch (err) {
+      toast.error("Lỗi cập nhật thông báo");
+    }
+  };
+
   const handleVote = async (postId: string, type: "upvote" | "downvote") => {
     try {
       await postService.vote(postId, type);
       await fetchPosts();
-    } catch {}
+    } catch { }
   };
 
   const handleSaveEdit = async (data: { title: string; content: string }) => {
@@ -126,7 +149,7 @@ const CommunityPage: React.FC = () => {
       await postService.update(editingPost._id, data);
       await fetchPosts();
       setEditingPost(null);
-    } catch {}
+    } catch { }
   };
 
   const confirmDelete = async () => {
@@ -134,7 +157,8 @@ const CommunityPage: React.FC = () => {
     try {
       await postService.delete(deleteId);
       setPosts((prev) => prev.filter((p) => p._id !== deleteId));
-    } catch {}
+      window.dispatchEvent(new CustomEvent("recentPostsUpdated", { detail: deleteId }));
+    } catch { }
     finally {
       setDeleteId(null);
     }
@@ -154,7 +178,7 @@ const CommunityPage: React.FC = () => {
 
   const formatNumber = (num: number) =>
     num >= 1_000_000 ? (num / 1_000_000).toFixed(1) + "M" :
-    num >= 1_000 ? (num / 1_000).toFixed(1) + "k" : num.toString();
+      num >= 1_000 ? (num / 1_000).toFixed(1) + "k" : num.toString();
 
   const timeAgo = (date: string) => {
     const diff = (Date.now() - new Date(date).getTime()) / 1000;
@@ -173,14 +197,14 @@ const CommunityPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header onLoginClick={() => {}} onRegisterClick={() => {}} onToggleSidebar={() => setIsSidebarOpen(true)} />
+      <Header onToggleSidebar={() => setIsSidebarOpen(true)} />
 
       <div className="flex flex-1">
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           activeItem="communities"
-          onItemClick={() => {}}
+          onItemClick={() => { }}
         />
 
         {/* MAIN CONTENT */}
@@ -191,9 +215,11 @@ const CommunityPage: React.FC = () => {
             isMember={isMember}
             isPending={isPending}
             loading={loading}
+            isNotificationEnabled={isNotificationEnabled}
             onJoinLeave={handleJoinLeave}
-            onManageClick={() => navigate(`/quan-ly-cong-dong/${community._id}`)}
+            onManageClick={() => navigate(`/quan-ly-cong-dong`)}
             onDeleteClick={() => setConfirmDeleteCommunity(true)}
+            onToggleNotification={handleToggleNotification}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -204,17 +230,21 @@ const CommunityPage: React.FC = () => {
                 </p>
               ) : posts.length > 0 ? (
                 <div className="space-y-0">
-                  {posts.map((post) => (
-                    <PostCard
-                      key={post._id}
-                      post={post}
-                      onVote={handleVote}
-                      formatNumber={formatNumber}
-                      timeAgo={timeAgo}
-                      onEdit={setEditingPost}
-                      onDelete={setDeleteId}
-                      onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
-                    />
+                  {posts.map((post, index) => (
+                    <React.Fragment key={post._id}>
+                      <PostCard
+                        post={post}
+                        onVote={handleVote}
+                        formatNumber={formatNumber}
+                        timeAgo={timeAgo}
+                        onEdit={setEditingPost}
+                        onDelete={setDeleteId}
+                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                      />
+                      {index < posts.length - 1 && (
+                        <div className="border-b border-gray-200 my-[5px]"></div>
+                      )}
+                    </React.Fragment>
                   ))}
                 </div>
               ) : (

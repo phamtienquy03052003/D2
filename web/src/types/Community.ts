@@ -1,3 +1,5 @@
+import type { User } from "./User";
+
 export interface Community {
   _id: string;
   name: string;
@@ -5,15 +7,17 @@ export interface Community {
   avatar?: string;
 
   creator:
-    | string
-    | {
-        _id: string;
-        name?: string;
-        avatar?: string;
-      };
+  | string
+  | {
+    _id: string;
+    name?: string;
+    avatar?: string;
+  };
 
-  members: string[];
-  pendingMembers?: string[];
+  members: string[] | User[];
+  pendingMembers?: string[] | User[];
+  restrictedUsers?: string[] | User[];
+  notificationSubscribers?: string[] | User[];
 
   isPrivate: boolean;
   isApproval: boolean;
@@ -27,4 +31,5 @@ export interface Community {
   isCreator?: boolean;
   isMember?: boolean;
   isPending?: boolean;
+  isRestricted?: boolean;
 }

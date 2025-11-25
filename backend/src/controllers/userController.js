@@ -40,6 +40,25 @@ export const getUserPublic = async (req, res) => {
   }
 };
 
+export const searchUsers = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q?.trim()) {
+      return res.status(400).json({ message: "Thiếu từ khóa tìm kiếm" });
+    }
+
+    const users = await User.find({
+      name: { $regex: q, $options: "i" }
+    })
+      .select("name avatar email role isActive")
+      .limit(20);
+
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // Cập nhật thông tin cá nhân (tên)
 export const updateProfile = async (req, res) => {
   try {

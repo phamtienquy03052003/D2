@@ -62,11 +62,7 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header
-        onLoginClick={() => {}}
-        onRegisterClick={() => {}}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
         <Sidebar

@@ -1,5 +1,4 @@
 import React from "react";
-import { FiLock, FiUnlock } from "react-icons/fi";
 import { getUserJoinDate } from "../../utils/userUtils";
 import type { User } from "../../types/User";
 
@@ -28,18 +27,22 @@ const UserProfileInfo: React.FC<UserProfileInfoProps> = ({
 
         <div className="flex justify-between items-center">
           <span className="font-medium">Riêng tư:</span>
-          <button
-            onClick={onPrivacyChange}
-            disabled={savingPrivacy}
-            className={`flex items-center gap-2 px-3 py-1 rounded-full font-medium transition-colors ${
-              user.isPrivate
-                ? "bg-orange-500 text-white"
-                : "bg-gray-300 text-gray-700"
-            }`}
-          >
-            {user.isPrivate ? <FiLock /> : <FiUnlock />}
-            {user.isPrivate ? "Bật" : "Tắt"}
-          </button>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium ${user.isPrivate ? "text-orange-500" : "text-gray-500"}`}>
+              {user.isPrivate ? "Bật" : "Tắt"}
+            </span>
+            <button
+              onClick={onPrivacyChange}
+              disabled={savingPrivacy}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${user.isPrivate ? "bg-orange-500" : "bg-gray-200"
+                }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.isPrivate ? "translate-x-6" : "translate-x-1"
+                  }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
 

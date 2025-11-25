@@ -3,9 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
-import RightSidebar from "../../components/user/RightSidebar";
-import Login from "../../components/user/Login";
-import Register from "../../components/user/Register";
+import RecentPostRightSidebar from "../../components/user/RecentPostRightSidebar";
 import { postService } from "../../services/postService";
 import PostCard from "../../components/user/PostCard";
 import EditPostModal from "../../components/user/EditPostModal";
@@ -14,10 +12,7 @@ import PostTabs from "../../components/user/PostTabs";
 import type { Post } from "../../types/Post";
 import { getAuthorAvatar, getAuthorName, getVoteCount, hasImage } from "../../utils/postUtils";
 
-type AuthMode = "none" | "login" | "register";
-
 const HomePage: React.FC = () => {
-  const [authMode, setAuthMode] = useState<AuthMode>("none");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMenuItem, setActiveMenuItem] = useState("home");
   const [activeTab, setActiveTab] = useState("Tốt nhất");
@@ -40,8 +35,27 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchPosts = async () => {
+      setLoading(true);
       try {
-        const data = await postService.getAll();
+        let sortKey = "new";
+        switch (activeTab) {
+          case "Tốt nhất":
+            sortKey = "best";
+            break;
+          case "Quan tâm nhiều nhất":
+            sortKey = "hot";
+            break;
+          case "Mới nhất":
+            sortKey = "new";
+            break;
+          case "Hàng đầu":
+            sortKey = "top";
+            break;
+          default:
+            sortKey = "new";
+        }
+
+        const data = await postService.getAll(sortKey);
         setPosts(decoratePosts(data));
       } catch (err) {
         console.error("Failed to load posts:", err);
@@ -50,21 +64,9 @@ const HomePage: React.FC = () => {
       }
     };
     fetchPosts();
-  }, []);
+  }, [activeTab]);
 
-  const openLogin = () => setAuthMode("login");
-  const openRegister = () => setAuthMode("register");
-  const closeAuth = () => setAuthMode("none");
 
-  const handleVote = async (postId: string, type: "upvote" | "downvote") => {
-    try {
-      await postService.vote(postId, type);
-      const data = await postService.getAll();
-      setPosts(decoratePosts(data));
-    } catch (err) {
-      console.error("Vote failed:", err);
-    }
-  };
 
   const handleEditPost = (post: Post) => setEditingPost(post);
 
@@ -89,6 +91,7 @@ const HomePage: React.FC = () => {
     try {
       await postService.delete(deleteId);
       setPosts((prev) => prev.filter((p) => p._id !== deleteId));
+      window.dispatchEvent(new CustomEvent("recentPostsUpdated", { detail: deleteId }));
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,11 +122,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <Header
-        onLoginClick={openLogin}
-        onRegisterClick={openRegister}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
         <Sidebar
@@ -140,17 +139,20 @@ const HomePage: React.FC = () => {
 
               <div className="space-y-0">
                 {posts.length > 0 ? (
-                  posts.map((post) => (
-                    <PostCard
-                      key={post._id}
-                      post={post}
-                      onVote={handleVote}
-                      formatNumber={formatNumber}
-                      timeAgo={timeAgo}
-                      onEdit={handleEditPost}
-                      onDelete={handleDeletePost}
-                      onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
-                    />
+                  posts.map((post, index) => (
+                    <React.Fragment key={post._id}>
+                      <PostCard
+                        post={post}
+                        formatNumber={formatNumber}
+                        timeAgo={timeAgo}
+                        onEdit={handleEditPost}
+                        onDelete={handleDeletePost}
+                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                      />
+                      {index < posts.length - 1 && (
+                        <div className="border-b border-gray-200 my-[5px]"></div>
+                      )}
+                    </React.Fragment>
                   ))
                 ) : (
                   <div className="text-center text-gray-500 py-10">
@@ -160,23 +162,10 @@ const HomePage: React.FC = () => {
               </div>
             </div>
 
-            <RightSidebar />
+            <RecentPostRightSidebar />
           </div>
         </div>
       </div>
-
-      {authMode === "login" && (
-        <Login
-          onClose={closeAuth}
-          onSwitchToRegister={() => setAuthMode("register")}
-        />
-      )}
-      {authMode === "register" && (
-        <Register
-          onClose={closeAuth}
-          onSwitchToLogin={() => setAuthMode("login")}
-        />
-      )}
 
       {editingPost && (
         <EditPostModal

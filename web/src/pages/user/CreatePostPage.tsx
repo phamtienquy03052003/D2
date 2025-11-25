@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
 import RightSidebar from "../../components/user/RightSidebar";
@@ -10,13 +10,15 @@ import "quill/dist/quill.snow.css";
 import { toast } from "react-hot-toast";
 import PostScopeSelector from "../../components/user/PostScopeSelector";
 import PostTypeTabs from "../../components/user/PostTypeTabs";
+import { X } from "lucide-react";
 
 export default function CreatePostPage() {
   // --- STATE QUẢN LÝ DỮ LIỆU ---
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(""); // nội dung bài viết (HTML)
   const [linkUrl, setLinkUrl] = useState("");
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]); // Mảng chứa nhiều file
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]); // Preview ảnh
 
   const [postScope, setPostScope] = useState<"personal" | "community">("personal");
   const [communityId, setCommunityId] = useState("");
@@ -59,21 +61,68 @@ export default function CreatePostPage() {
     fetchCommunities();
   }, []);
 
+  // Cleanup preview URLs
+  const previewUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    previewUrlsRef.current = previewUrls;
+  }, [previewUrls]);
+
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+
+  // --- XỬ LÝ CHỌN FILE ---
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      const totalFiles = mediaFiles.length + files.length;
+
+      if (totalFiles > 4) {
+        toast.error("Chỉ được tải lên tối đa 4 ảnh!");
+        return;
+      }
+
+      const newPreviews = files.map((file) => URL.createObjectURL(file));
+      setMediaFiles((prev) => [...prev, ...files]);
+      setPreviewUrls((prev) => [...prev, ...newPreviews]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
   // --- XỬ LÝ GỬI BÀI ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload: Record<string, any> = { title, content };
+
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("content", content);
+    if (linkUrl) formData.append("linkUrl", linkUrl);
 
     if (postScope === "community") {
       if (!communityId) {
         toast.error("Vui lòng chọn cộng đồng!");
         return;
       }
-      payload.communityId = communityId;
+      formData.append("communityId", communityId);
     }
 
+    // Append files
+    mediaFiles.forEach((file) => {
+      formData.append("images", file);
+    });
+
     try {
-      const { post } = await postService.create(payload);
+      const { post } = await postService.create(formData);
       toast.success(
         post.status === "pending"
           ? "Bài viết đã được gửi và đang chờ xét duyệt."
@@ -93,11 +142,7 @@ export default function CreatePostPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <Header
-        onLoginClick={() => {}}
-        onRegisterClick={() => {}}
-        onToggleSidebar={toggleSidebar}
-      />
+      <Header onToggleSidebar={toggleSidebar} />
 
       <div className="flex flex-1">
         {/* Sidebar bên trái */}
@@ -105,7 +150,7 @@ export default function CreatePostPage() {
           isOpen={isSidebarOpen}
           onClose={closeSidebar}
           activeItem="create-post"
-          onItemClick={() => {}}
+          onItemClick={() => { }}
         />
 
         {/* Vùng nội dung chính */}
@@ -150,9 +195,8 @@ export default function CreatePostPage() {
                   <div className="mt-3">
                     {/* Giữ nguyên Quill trong DOM để không bị mất state khi ẩn/hiện tab */}
                     <div
-                      className={`quill-wrapper ${
-                        activeTab !== "text" ? "hidden" : ""
-                      }`}
+                      className={`quill-wrapper ${activeTab !== "text" ? "hidden" : ""
+                        }`}
                       style={{ height: 200 }}
                     >
                       <div ref={quillRef} style={{ height: "100%" }} />
@@ -161,26 +205,45 @@ export default function CreatePostPage() {
 
                   {/* --- TAB MEDIA --- */}
                   {activeTab === "media" && (
-                    <div className="border border-dashed border-gray-400 rounded-lg p-10 text-center text-sm text-gray-500">
-                      <input
-                        type="file"
-                        accept="image/*,video/*"
-                        onChange={(e) =>
-                          setMediaFile(e.target.files ? e.target.files[0] : null)
-                        }
-                        className="hidden"
-                        id="mediaUpload"
-                      />
-                      <label
-                        htmlFor="mediaUpload"
-                        className="cursor-pointer hover:underline"
-                      >
-                        Kéo & thả hoặc chọn tệp để tải lên
-                      </label>
-                      {mediaFile && (
-                        <p className="mt-3 text-gray-700 text-sm">
-                          Đã chọn: {mediaFile.name}
-                        </p>
+                    <div className="space-y-4">
+                      <div className="border border-dashed border-gray-400 rounded-lg p-10 text-center text-sm text-gray-500">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleFileChange}
+                          className="hidden"
+                          id="mediaUpload"
+                          disabled={mediaFiles.length >= 4}
+                        />
+                        <label
+                          htmlFor="mediaUpload"
+                          className={`cursor-pointer hover:underline ${mediaFiles.length >= 4 ? "opacity-50 cursor-not-allowed" : ""}`}
+                        >
+                          {mediaFiles.length >= 4 ? "Đã đạt tối đa 4 ảnh" : "Kéo & thả hoặc chọn tệp để tải lên (Tối đa 4 ảnh)"}
+                        </label>
+                      </div>
+
+                      {/* Preview Images */}
+                      {previewUrls.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {previewUrls.map((url, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={url}
+                                alt={`Preview ${index}`}
+                                className="w-full h-40 object-cover rounded-lg border"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeFile(index)}
+                                className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}

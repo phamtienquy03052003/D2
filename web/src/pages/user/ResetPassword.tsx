@@ -33,11 +33,7 @@ const ResetPassword: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
-      <Header
-        onLoginClick={() => navigate("/login")}
-        onRegisterClick={() => navigate("/register")}
-        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-      />
+      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
         {/* Sidebar */}

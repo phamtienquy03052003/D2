@@ -12,9 +12,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import { socket } from "../../context/AuthContext";
 import { postService } from "../../services/postService";
+import { commentService } from "../../services/commentService";
 import { useAuth } from "../../context/AuthContext";
-import { getAuthorAvatar, getAuthorName } from "../../utils/postUtils";
+import { getAuthorAvatar, getAuthorName, getPostImageUrl } from "../../utils/postUtils";
 import type { Post } from "../../types/Post";
+import type { Comment } from "../../types/Comment";
 import ReportPostModal from "../../components/user/ReportPostModal";
 
 interface PostCardProps {
@@ -23,10 +25,24 @@ interface PostCardProps {
   onEdit?: (post: Post) => void;
   onDelete?: (postId: string) => void;
   onReport?: (post: Post) => void; // thêm callback report
+  onUnsave?: (postId: string) => void; // callback khi hủy lưu
   onNavigate?: () => void;
   formatNumber: (num: number) => string;
   timeAgo: (date: string) => string;
 }
+
+// Helper function để đếm tổng số comments (bao gồm cả replies)
+const countTotalComments = (comments: Comment[]): number => {
+  if (!comments || comments.length === 0) return 0;
+  let count = 0;
+  comments.forEach((comment) => {
+    count += 1; // Đếm comment gốc
+    if (comment.replies && comment.replies.length > 0) {
+      count += countTotalComments(comment.replies); // Đệ quy đếm replies
+    }
+  });
+  return count;
+};
 
 const PostCard: React.FC<PostCardProps> = ({
   post,
@@ -34,6 +50,7 @@ const PostCard: React.FC<PostCardProps> = ({
   timeAgo,
   onEdit,
   onDelete,
+  onUnsave,
   onNavigate,
 }) => {
   const { user } = useAuth();
@@ -50,8 +67,67 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const [userVote, setUserVote] = useState<"up" | "down" | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeCommentCount, setActiveCommentCount] = useState<number>(0);
+  const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch số lượng comments active
+  useEffect(() => {
+    if (!canInteract) {
+      setActiveCommentCount(0);
+      return;
+    }
+
+    const fetchCommentCount = async () => {
+      try {
+        const comments = await commentService.getByPost(post._id);
+        const totalCount = countTotalComments(comments);
+        setActiveCommentCount(totalCount);
+      } catch (error) {
+        console.error("Error fetching comment count:", error);
+        setActiveCommentCount(0);
+      }
+    };
+
+    fetchCommentCount();
+  }, [post._id, canInteract]);
+
+  // Lắng nghe socket để cập nhật số lượng comments realtime
+  useEffect(() => {
+    if (!canInteract) return;
+
+    const handleNewComment = (comment: Comment) => {
+      // Comment mới luôn có status "active" khi được emit
+      if (comment.post === post._id) {
+        setActiveCommentCount((prev) => prev + 1);
+      }
+    };
+
+    const handleDeleteComment = () => {
+      // Khi comment bị xóa, cần fetch lại để có số lượng chính xác
+      // vì có thể xóa kèm theo các replies
+      const fetchCommentCount = async () => {
+        try {
+          const comments = await commentService.getByPost(post._id);
+          const totalCount = countTotalComments(comments);
+          setActiveCommentCount(totalCount);
+        } catch (error) {
+          console.error("Error fetching comment count after delete:", error);
+        }
+      };
+      fetchCommentCount();
+    };
+
+    socket.on("newComment", handleNewComment);
+    socket.on("deleteComment", handleDeleteComment);
+
+    return () => {
+      socket.off("newComment", handleNewComment);
+      socket.off("deleteComment", handleDeleteComment);
+    };
+  }, [post._id, canInteract]);
 
   // Đồng bộ vote
   useEffect(() => {
@@ -72,6 +148,27 @@ const PostCard: React.FC<PostCardProps> = ({
     else if (inDown) setUserVote("down");
     else setUserVote(null);
   }, [post.upvotes, post.downvotes, user?._id]);
+
+  // Kiểm tra xem bài viết đã được lưu chưa
+  useEffect(() => {
+    if (!user?._id || !canInteract) {
+      setIsSaved(false);
+      return;
+    }
+
+    const checkSavedStatus = async () => {
+      try {
+        const savedPosts = await postService.getSavedPosts();
+        const saved = savedPosts.some((p) => p._id === post._id);
+        setIsSaved(saved);
+      } catch (error) {
+        console.error("Error checking saved status:", error);
+        setIsSaved(false);
+      }
+    };
+
+    checkSavedStatus();
+  }, [user?._id, post._id, canInteract]);
 
   // Lắng nghe socket
   useEffect(() => {
@@ -103,16 +200,18 @@ const PostCard: React.FC<PostCardProps> = ({
     if (!canInteract) return;
 
     try {
+      // Optimistic update for userVote
       setUserVote((prev) =>
         (prev === "up" && type === "upvote") ||
-        (prev === "down" && type === "downvote")
+          (prev === "down" && type === "downvote")
           ? null
           : type === "upvote"
-          ? "up"
-          : "down"
+            ? "up"
+            : "down"
       );
 
-      await postService.vote(post._id, type);
+      const { upvotes, downvotes } = await postService.vote(post._id, type);
+      setLocalVotes({ upvotes, downvotes });
     } catch (err) {
       console.error(err);
     }
@@ -142,8 +241,31 @@ const PostCard: React.FC<PostCardProps> = ({
     if (post.author?._id) navigate(`/nguoi-dung/${post.author._id}`);
   };
 
+  // Xử lý lưu/hủy lưu
+  const handleSave = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Ngăn navigate khi click vào nút
+    if (!canInteract || !user || isSaving) return;
+
+    try {
+      setIsSaving(true);
+      if (isSaved) {
+        await postService.unsave(post._id);
+        setIsSaved(false);
+        // Gọi callback nếu có (để cập nhật danh sách ở trang đã lưu)
+        onUnsave?.(post._id);
+      } else {
+        await postService.save(post._id);
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving post:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="bg-white border-b border-gray-200 transition-colors hover:bg-gray-100">
+    <div className="bg-white border-gray-200 rounded-2xl transition-colors hover:bg-gray-100 ">
       {/* Header */}
       <div className="flex items-center px-3 py-2 space-x-2">
         {/* Avatar */}
@@ -174,21 +296,20 @@ const PostCard: React.FC<PostCardProps> = ({
             {getAuthorName(post)}
           </span>
 
-          <span className="text-gray-400">•</span>
-
           {/* Community / Cá nhân */}
-          {post.community?._id ? (
-            <span
-              className="font-bold text-gray-900 hover:text-orange-300 cursor-pointer"
-              onClick={() =>
-                post.community?._id &&
-                navigate(`/cong-dong/${post.community._id}`)
-              }
-            >
-              {post.community?.name || "Cộng đồng"}
-            </span>
-          ) : (
-            <span className="font-semibold text-gray-600">Cá nhân</span>
+          {post.community?._id && (
+            <>
+              <span className="text-gray-400">•</span>
+              <span
+                className="font-bold text-gray-900 hover:text-orange-300 cursor-pointer"
+                onClick={() =>
+                  post.community?._id &&
+                  navigate(`/cong-dong/${post.community._id}`)
+                }
+              >
+                {post.community?.name || "Cộng đồng"}
+              </span>
+            </>
           )}
 
           <span className="text-gray-400">•</span>
@@ -201,9 +322,8 @@ const PostCard: React.FC<PostCardProps> = ({
         <div className="ml-auto flex items-center space-x-2">
           {statusLabel && (
             <span
-              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                isPending ? "text-yellow-700 bg-yellow-100" : "text-red-600 bg-red-100"
-              }`}
+              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isPending ? "text-yellow-700 bg-yellow-100" : "text-red-600 bg-red-100"
+                }`}
             >
               {statusLabel}
             </span>
@@ -269,35 +389,56 @@ const PostCard: React.FC<PostCardProps> = ({
           />
         )}
 
-        {post.image && (
+        {/* Hiển thị ảnh (Single or Multiple) */}
+        {post.images && post.images.length > 0 ? (
+          <div className={`grid gap-1 mb-3 ${post.images.length === 1 ? "grid-cols-1" :
+            post.images.length === 2 ? "grid-cols-2" :
+              "grid-cols-2"
+            }`}>
+            {post.images.slice(0, 4).map((img: string, index: number) => (
+              <div key={index} className={`relative ${post.images!.length === 3 && index === 0 ? "col-span-2" : ""
+                } `}>
+                <img
+                  src={getPostImageUrl(img)}
+                  alt={`Post content ${index + 1} `}
+                  className="w-full h-full object-cover rounded hover:opacity-95 transition-opacity"
+                  style={{ maxHeight: "500px", minHeight: "200px" }}
+                />
+                {post.images!.length > 4 && index === 3 && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded">
+                    <span className="text-white text-xl font-bold">+{post.images!.length - 4}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : post.image ? (
           <div className="mb-3">
             <img
-              src={post.image}
+              src={getPostImageUrl(post.image)}
               alt="Post content"
               className="max-w-full h-auto rounded hover:opacity-95 transition-opacity"
               style={{ maxHeight: "500px" }}
             />
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Thanh hành động */}
       <div className="flex items-center px-2 pb-2 space-x-1">
         <div
-          className={`flex items-center rounded-full px-2 py-1 transition-all ${
-            userVote === "up"
-              ? "bg-orange-200"
-              : userVote === "down"
+          className={`flex items-center rounded-full px-2 py-1 transition-all ${userVote === "up"
+            ? "bg-orange-200"
+            : userVote === "down"
               ? "bg-blue-200"
               : "bg-gray-200"
-          } ${!canInteract ? "opacity-60 cursor-not-allowed" : ""}`}
+            } ${!canInteract ? "opacity-60 cursor-not-allowed" : ""}`}
         >
           <button
             onClick={() => handleVote("upvote")}
             disabled={!canInteract}
-            className={`p-1 rounded-full ${
-              userVote === "up" ? "text-orange-500" : "text-gray-600"
-            } ${!canInteract ? "cursor-not-allowed" : ""}`}
+            className={`p-1 rounded-full ${userVote === "up" ? "text-orange-500" : "text-gray-600"
+              } ${!canInteract ? "cursor-not-allowed" : ""}`}
           >
             <ArrowUp className="w-5 h-5" />
           </button>
@@ -305,16 +446,15 @@ const PostCard: React.FC<PostCardProps> = ({
           <span className="text-xs font-bold px-2 text-gray-900 min-w-[28px] text-center">
             {formatNumber(
               (localVotes.upvotes?.length || 0) -
-                (localVotes.downvotes?.length || 0)
+              (localVotes.downvotes?.length || 0)
             )}
           </span>
 
           <button
             onClick={() => handleVote("downvote")}
             disabled={!canInteract}
-            className={`p-1 rounded-full ${
-              userVote === "down" ? "text-blue-600" : "text-gray-600"
-            } ${!canInteract ? "cursor-not-allowed" : ""}`}
+            className={`p-1 rounded-full ${userVote === "down" ? "text-blue-600" : "text-gray-600"
+              } ${!canInteract ? "cursor-not-allowed" : ""}`}
           >
             <ArrowDown className="w-5 h-5" />
           </button>
@@ -327,7 +467,7 @@ const PostCard: React.FC<PostCardProps> = ({
           >
             <MessageSquare className="w-5 h-5" />
             <span className="text-xs">
-              {formatNumber(post.comments?.length || 0)}
+              {formatNumber(activeCommentCount)}
             </span>
           </button>
         </div>
@@ -339,22 +479,31 @@ const PostCard: React.FC<PostCardProps> = ({
           </button>
         </div>
 
-        <div className="bg-gray-200 flex items-center rounded-full hover:bg-gray-300">
-          <button className="flex items-center space-x-2 px-3 py-1.5">
-            <Bookmark className="w-5 h-5" />
-            <span className="text-xs">Lưu</span>
+        <div className={`flex items-center rounded-full hover:bg-gray-300 ${isSaved ? "bg-orange-200" : "bg-gray-200"
+          }`}>
+          <button
+            onClick={handleSave}
+            disabled={!canInteract || !user || isSaving}
+            className={`flex items-center space-x-2 px-3 py-1.5 ${!canInteract || !user ? "opacity-60 cursor-not-allowed" : ""
+              }`}
+          >
+            <Bookmark
+              className={`w-5 h-5 ${isSaved ? "text-orange-600 fill-orange-600" : "text-gray-600"
+                }`}
+            />
+            <span className="text-xs">{isSaved ? "Đã lưu" : "Lưu"}</span>
           </button>
         </div>
       </div>
       {reportModalOpen && (
-  <ReportPostModal
-    post={post}
-    onClose={() => setReportModalOpen(false)}
-    onReported={() => console.log("Báo cáo thành công!")}
-  />
-)}
+        <ReportPostModal
+          post={post}
+          onClose={() => setReportModalOpen(false)}
+          onReported={() => console.log("Báo cáo thành công!")}
+        />
+      )}
     </div>
-    
+
   );
 };
 

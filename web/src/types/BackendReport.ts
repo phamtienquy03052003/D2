@@ -5,8 +5,8 @@ export interface BackendReport {
   status: "Pending" | "Reviewed" | "Rejected";
   targetType: "Post" | "Comment";
   targetId: string;
-  postData?: any[];    // $lookup từ posts
-  commentData?: any[]; // $lookup từ comments
+  postData?: any[];
+  commentData?: any[];
 }
 
 export interface GroupedReport {

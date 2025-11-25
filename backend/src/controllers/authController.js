@@ -2,8 +2,16 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
-import { generateAccessToken, generateRefreshToken } from "../utils/generateTokens.js";
+import { 
+  generateAccessToken, 
+  generateRefreshToken,
+  cleanupRefreshTokens,
+  safeVerifyRefreshToken
+} from "../utils/generateTokens.js";
 import { sendResetEmail } from "../utils/email.js";
+
+// Giới hạn số lượng refresh token mỗi user
+const MAX_REFRESH_TOKENS = parseInt(process.env.MAX_REFRESH_TOKENS || "5", 10);
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -30,6 +38,9 @@ export const register = async (req, res) => {
     });
     await newUser.save();
 
+    // Cleanup token cũ và giới hạn số lượng
+    newUser.refreshTokens = cleanupRefreshTokens(newUser.refreshTokens, MAX_REFRESH_TOKENS);
+    
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken(newUser);
     newUser.refreshTokens.push(refreshToken);
@@ -68,6 +79,9 @@ export const login = async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
+
+    // Cleanup token cũ và giới hạn số lượng
+    user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
@@ -118,6 +132,9 @@ export const googleLogin = async (req, res) => {
       await user.save();
     }
 
+    // Cleanup token cũ và giới hạn số lượng
+    user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
+
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
@@ -147,18 +164,39 @@ export const refreshToken = async (req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken) return res.status(401).json({ message: "Thiếu refresh token" });
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(403).json({ message: "Người dùng không tồn tại" });
+    // Verify token - nếu hết hạn sẽ throw error
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    } catch (verifyErr) {
+      // Token hết hạn hoặc không hợp lệ
+      return res.status(403).json({ message: "Refresh token không hợp lệ hoặc hết hạn" });
+    }
 
-    if (!user.refreshTokens.includes(refreshToken))
+    const user = await User.findById(decoded.id);
+    if (!user) {
+      return res.status(403).json({ message: "Người dùng không tồn tại" });
+    }
+
+    // Cleanup tất cả token hết hạn trước khi kiểm tra
+    user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
+
+    // Kiểm tra token có trong danh sách hợp lệ
+    if (!user.refreshTokens.includes(refreshToken)) {
+      await user.save(); // Lưu lại sau khi cleanup
       return res.status(403).json({ message: "Refresh token không hợp lệ" });
+    }
 
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
+    // Xóa token cũ và thêm token mới
     user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
     user.refreshTokens.push(newRefreshToken);
+    
+    // Đảm bảo không vượt quá giới hạn (trong trường hợp có nhiều token hợp lệ)
+    user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
+    
     await user.save();
 
     res.status(200).json({
@@ -177,11 +215,19 @@ export const logout = async (req, res) => {
     const { refreshToken } = req.body;
     if (!refreshToken) return res.status(400).json({ message: "Thiếu refresh token" });
 
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    // Sử dụng safe verify để tránh lỗi khi token hết hạn
+    const decoded = safeVerifyRefreshToken(refreshToken);
+    if (!decoded) {
+      // Token đã hết hạn, chỉ cần cleanup và trả về success
+      return res.status(200).json({ message: "Đăng xuất thành công" });
+    }
+
     const user = await User.findById(decoded.id);
     if (!user) return res.status(400).json({ message: "Người dùng không tồn tại" });
 
+    // Xóa token và cleanup token hết hạn
     user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
+    user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
     await user.save();
 
     res.status(200).json({ message: "Đăng xuất thành công" });
