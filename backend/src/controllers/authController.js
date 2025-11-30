@@ -2,8 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
-import { 
-  generateAccessToken, 
+import {
+  generateAccessToken,
   generateRefreshToken,
   cleanupRefreshTokens,
   safeVerifyRefreshToken
@@ -18,7 +18,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // Đăng ký
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, gender } = req.body;
 
     if (!email || !password)
       return res.status(400).json({ message: "Thiếu thông tin bắt buộc (email hoặc mật khẩu)" });
@@ -34,13 +34,15 @@ export const register = async (req, res) => {
       name: name || "",
       email,
       password: hashedPassword,
+      phone: phone || "",
+      gender: gender || "Khác",
       refreshTokens: [],
     });
     await newUser.save();
 
     // Cleanup token cũ và giới hạn số lượng
     newUser.refreshTokens = cleanupRefreshTokens(newUser.refreshTokens, MAX_REFRESH_TOKENS);
-    
+
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken(newUser);
     newUser.refreshTokens.push(refreshToken);
@@ -193,10 +195,10 @@ export const refreshToken = async (req, res) => {
     // Xóa token cũ và thêm token mới
     user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
     user.refreshTokens.push(newRefreshToken);
-    
+
     // Đảm bảo không vượt quá giới hạn (trong trường hợp có nhiều token hợp lệ)
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
-    
+
     await user.save();
 
     res.status(200).json({

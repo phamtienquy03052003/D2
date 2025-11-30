@@ -1,21 +1,22 @@
 // pages/user/HomePage.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/user/Header";
-import Sidebar from "../../components/user/Sidebar";
+
 import RecentPostRightSidebar from "../../components/user/RecentPostRightSidebar";
 import { postService } from "../../services/postService";
 import PostCard from "../../components/user/PostCard";
 import EditPostModal from "../../components/user/EditPostModal";
 import ConfirmModal from "../../components/user/ConfirmModal";
-import PostTabs from "../../components/user/PostTabs";
+
 import type { Post } from "../../types/Post";
 import { getAuthorAvatar, getAuthorName, getVoteCount, hasImage } from "../../utils/postUtils";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
-const HomePage: React.FC = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeMenuItem, setActiveMenuItem] = useState("home");
-  const [activeTab, setActiveTab] = useState("Tốt nhất");
+interface HomePageProps {
+  sortType?: "best" | "hot" | "new" | "top";
+}
+
+const HomePage: React.FC<HomePageProps> = ({ sortType = "best" }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -37,25 +38,7 @@ const HomePage: React.FC = () => {
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        let sortKey = "new";
-        switch (activeTab) {
-          case "Tốt nhất":
-            sortKey = "best";
-            break;
-          case "Quan tâm nhiều nhất":
-            sortKey = "hot";
-            break;
-          case "Mới nhất":
-            sortKey = "new";
-            break;
-          case "Hàng đầu":
-            sortKey = "top";
-            break;
-          default:
-            sortKey = "new";
-        }
-
-        const data = await postService.getAll(sortKey);
+        const data = await postService.getAll(sortType);
         setPosts(decoratePosts(data));
       } catch (err) {
         console.error("Failed to load posts:", err);
@@ -64,7 +47,7 @@ const HomePage: React.FC = () => {
       }
     };
     fetchPosts();
-  }, [activeTab]);
+  }, [sortType]);
 
 
 
@@ -99,72 +82,45 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + "k";
-    return num.toString();
-  };
 
-  const timeAgo = (date: string) => {
-    const diff = (Date.now() - new Date(date).getTime()) / 1000;
-    if (diff < 60) return `${Math.floor(diff)}s trước`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h trước`;
-    return `${Math.floor(diff / 86400)}d trước`;
-  };
 
   if (loading)
     return (
-      <div className="flex justify-center items-center min-h-screen text-gray-500">
-        Đang tải bài viết...
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner />
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+    <>
+      <div className="flex gap-6">
+        <div className="flex-1 max-w-3xl">
 
-      <div className="flex flex-1">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          activeItem={activeMenuItem}
-          onItemClick={setActiveMenuItem}
-        />
 
-        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 lg:ml-[calc(128px+16rem)]">
-          <div className="flex gap-6">
-            <div className="flex-1 max-w-2xl">
-              <PostTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-              <div className="space-y-0">
-                {posts.length > 0 ? (
-                  posts.map((post, index) => (
-                    <React.Fragment key={post._id}>
-                      <PostCard
-                        post={post}
-                        formatNumber={formatNumber}
-                        timeAgo={timeAgo}
-                        onEdit={handleEditPost}
-                        onDelete={handleDeletePost}
-                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
-                      />
-                      {index < posts.length - 1 && (
-                        <div className="border-b border-gray-200 my-[5px]"></div>
-                      )}
-                    </React.Fragment>
-                  ))
-                ) : (
-                  <div className="text-center text-gray-500 py-10">
-                    Chưa có bài viết nào.
-                  </div>
-                )}
+          <div className="space-y-0">
+            {posts.length > 0 ? (
+              posts.map((post, index) => (
+                <React.Fragment key={post._id}>
+                  <PostCard
+                    post={post}
+                    onEdit={handleEditPost}
+                    onDelete={handleDeletePost}
+                    onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                  />
+                  {index < posts.length - 1 && (
+                    <div className="border-b border-gray-200 my-[5px]"></div>
+                  )}
+                </React.Fragment>
+              ))
+            ) : (
+              <div className="text-center text-gray-500 py-10">
+                Chưa có bài viết nào.
               </div>
-            </div>
-
-            <RecentPostRightSidebar />
+            )}
           </div>
         </div>
+
+        <RecentPostRightSidebar />
       </div>
 
       {editingPost && (
@@ -183,7 +139,7 @@ const HomePage: React.FC = () => {
           onCancel={() => setDeleteId(null)}
         />
       )}
-    </div>
+    </>
   );
 };
 

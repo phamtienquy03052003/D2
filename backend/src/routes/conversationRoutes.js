@@ -9,5 +9,7 @@ router.post("/group", verifyToken, conversationController.createGroupConversatio
 router.get("/user/:userId", verifyToken, conversationController.getUserConversations);
 router.get("/detail/:conversationId", verifyToken, conversationController.getConversationById);
 router.patch("/group/:conversationId/members", verifyToken, conversationController.updateGroupMembers);
+router.post("/:conversationId/accept", verifyToken, conversationController.acceptConversation);
+router.post("/:conversationId/reject", verifyToken, conversationController.rejectConversation);
 
 export default router;

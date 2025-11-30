@@ -51,23 +51,19 @@ const EditUserNameModal: React.FC<EditUserNameModalProps> = ({
           Đổi tên người dùng
         </h2>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Tên mới
-        </label>
-
         <input
           type="text"
           value={name}
           maxLength={40}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition"
+          className="w-full px-4 py-3 bg-gray-100 rounded-full border-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all outline-none placeholder-gray-500 text-sm"
           placeholder="Nhập tên mới..."
         />
 
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+            className="px-6 py-2 rounded-full bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-colors"
           >
             Hủy
           </button>
@@ -75,7 +71,7 @@ const EditUserNameModal: React.FC<EditUserNameModalProps> = ({
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-5 py-2 text-sm rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition disabled:opacity-50"
+            className="px-6 py-2 rounded-full bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Đang lưu..." : "Lưu"}
           </button>

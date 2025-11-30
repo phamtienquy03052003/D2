@@ -25,6 +25,17 @@ export function isMember(community: Community, userId: string): boolean {
 }
 
 /**
+ * Kiểm tra user có phải moderator không
+ */
+export function isModerator(community: Community, userId: string): boolean {
+  if (!community.moderators?.length) return false;
+  if (typeof community.moderators[0] === "string") {
+    return (community.moderators as string[]).includes(userId);
+  }
+  return (community.moderators as User[]).some(u => u._id === userId);
+}
+
+/**
  * Kiểm tra user đang pending không
  */
 export function isPending(community: Community, userId: string): boolean {
@@ -41,8 +52,11 @@ export function isPending(community: Community, userId: string): boolean {
 /**
  * Lấy avatar đầy đủ URL
  */
-export function getCommunityAvatarUrl(community: Community): string | undefined {
-  if (!community.avatar) return undefined;
+/**
+ * Lấy avatar đầy đủ URL
+ */
+export function getCommunityAvatarUrl(community?: Community | null): string {
+  if (!community?.avatar) return `${BASE_URL}/uploads/communityAvatars/community_avatar_default.png`;
   if (community.avatar.startsWith("http")) return community.avatar;
   return `${BASE_URL}${community.avatar}`;
 }

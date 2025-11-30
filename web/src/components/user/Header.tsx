@@ -6,7 +6,6 @@ import {
   Bell,
   MessageSquare,
   Menu,
-  ChevronDown,
 } from "lucide-react";
 import { useAuth, socket } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -38,6 +37,27 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [showSearchDropdown, setShowSearchDropdown] = React.useState(false);
   const searchTimeout = React.useRef<any>(null);
 
+  // User Dropdown State
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = React.useState(false);
+  const userDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Click outside to close user dropdown
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userDropdownRef.current &&
+        !userDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const handleCreatePost = () => {
     if (!isAuthenticated) return openLogin();
     navigate("/tao-bai-viet");
@@ -50,9 +70,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     socket.emit("joinUser", user._id);
 
     const handlePointAdded = (data: any) => {
+      if (!user) return;
       setUser({
         ...user,
-        totalPoints: (user.totalPoints || 0) + data.points,
+        totalPoints: data.totalPoints !== undefined ? data.totalPoints : (user.totalPoints || 0) + data.points,
       });
     };
 
@@ -277,77 +298,93 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 </button>
 
                 {/* USER DROPDOWN */}
-                <div className="relative group">
-                  <button className="flex items-center space-x-1 p-1 hover:bg-gray-100 rounded">
-                    {user?.avatar ? (
-                      <img
-                        src={getUserAvatarUrl(user)}
-                        alt="Avatar"
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                        {user?.name?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
-                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                <div className="relative" ref={userDropdownRef}>
+                  <button
+                    onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                    className="flex items-center space-x-1 p-1 hover:bg-gray-100 rounded transition-colors"
+                  >
+                    <img
+                      src={getUserAvatarUrl(user)}
+                      alt="Avatar"
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
                   </button>
 
-                  <div className="absolute right-0 mt-1 w-56 bg-white rounded border border-gray-300 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                    <div className="py-2">
-                      <div className="px-4 py-2 border-b border-gray-200">
-                        <p className="text-sm font-medium text-gray-900">
-                          {user?.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Điểm: {user?.totalPoints || 0}
-                        </p>
-                      </div>
+                  {isUserDropdownOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-white rounded border border-gray-300 shadow-lg z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="py-2">
+                        <div className="px-4 py-2 border-b border-gray-200">
+                          <p className="text-sm font-medium text-gray-900">
+                            {user?.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Điểm: {user?.totalPoints || 0}
+                          </p>
+                        </div>
 
-                      <button
-                        onClick={() => navigate("/thong-tin-ca-nhan")}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Thông tin cá nhân
-                      </button>
-
-                      <button
-                        onClick={() => navigate("/bai-viet-cua-toi")}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Bài viết của tôi
-                      </button>
-
-                      <button
-                        onClick={() => navigate("/bai-viet-da-luu")}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Bài viết đã lưu
-                      </button>
-
-                      {user?.role === "admin" && (
                         <button
-                          onClick={() => navigate("/admin")}
+                          onClick={() => {
+                            navigate("/ho-so-ca-nhan");
+                            setIsUserDropdownOpen(false);
+                          }}
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         >
-                          Quản trị hệ thống
+                          Hồ sơ cá nhân
                         </button>
-                      )}
 
-                      <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Cài đặt
-                      </button>
+                        <button
+                          onClick={() => {
+                            navigate("/quan-ly-diem");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Điểm
+                        </button>
 
-                      <hr className="my-1" />
+                        <button
+                          onClick={() => {
+                            navigate("/cua-hang");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Cửa hàng
+                        </button>
 
-                      <button
-                        onClick={logout}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Đăng xuất
-                      </button>
+                        {user?.role === "admin" && (
+                          <button
+                            onClick={() => {
+                              navigate("/admin");
+                              setIsUserDropdownOpen(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            Quản trị hệ thống
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            navigate("/cai-dat");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Cài đặt
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Đăng xuất
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
               </div>

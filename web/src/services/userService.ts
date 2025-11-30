@@ -23,6 +23,21 @@ export const userService = {
     return res.data as User;
   },
 
+  async updatePhone(phone: string): Promise<User> {
+    const res = await userApi.updatePhone(phone);
+    return res.data as User;
+  },
+
+  async updateGender(gender: string): Promise<User> {
+    const res = await userApi.updateGender(gender);
+    return res.data as User;
+  },
+
+  async updateChatRequestPermission(permission: string): Promise<User> {
+    const res = await userApi.updateChatRequestPermission(permission);
+    return res.data as User;
+  },
+
   async getUserPublic(id: string): Promise<User> {
     const res = await userApi.getUserPublic(id);
     return res.data as User;
@@ -46,6 +61,51 @@ export const userService = {
   async adminDelete(id: string): Promise<void> {
     await userApi.adminDelete(id);
   },
-  
+
+  async blockUser(targetId: string): Promise<void> {
+    await userApi.blockUser(targetId);
+  },
+
+  async unblockUser(targetId: string): Promise<void> {
+    await userApi.unblockUser(targetId);
+  },
+
+  async getBlockedUsers(): Promise<User[]> {
+    const res = await userApi.getBlockedUsers();
+    return res.data as User[];
+  },
+
+  async followUser(followingId: string): Promise<void> {
+    await userApi.followUser(followingId);
+  },
+
+  async unfollowUser(followingId: string): Promise<void> {
+    await userApi.unfollowUser(followingId);
+  },
+
+  async toggleFollowNotification(followingId: string): Promise<{ hasNotifications: boolean }> {
+    const res = await userApi.toggleFollowNotification(followingId);
+    return res.data;
+  },
+
+  async getFollowStatus(followingId: string): Promise<{ isFollowing: boolean; hasNotifications: boolean }> {
+    const res = await userApi.getFollowStatus(followingId);
+    return res.data;
+  },
+
+  async getXPHistory(): Promise<any[]> {
+    const res = await userApi.getXPHistory();
+    return res.data;
+  },
+
+  async getMyFollowers(): Promise<User[]> {
+    const res = await userApi.getMyFollowers();
+    return res.data as User[];
+  },
+
+  async updateNameTag(nameTagId: string | null): Promise<{ selectedNameTag: string }> {
+    const res = await userApi.updateNameTag(nameTagId);
+    return res.data;
+  },
 };
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { postService } from "../../services/postService";
 import { getCommunityAvatarUrl } from "../../utils/communityUtils";
+import { getAuthorAvatar } from "../../utils/postUtils";
 import { Link } from "react-router-dom";
 import type { Post } from "../../types/Post";
 import { useAuth } from "../../context/AuthContext";
@@ -17,7 +18,7 @@ const RecentPostRightSidebar: React.FC = () => {
 
         const loadRecentPosts = async () => {
             try {
-                const data = await postService.getRecentPosts();
+                const data = await postService.getRecentPosts(10);
                 setRecentPosts(data);
             } catch (err) {
                 console.error("Lỗi khi load bài viết gần đây:", err);
@@ -60,19 +61,16 @@ const RecentPostRightSidebar: React.FC = () => {
                         {recentPosts.map((post) => (
                             <li key={post._id} className="py-2 hover:bg-gray-50 rounded-lg px-2 transition">
                                 <Link to={`/chi-tiet-bai-viet/${post._id}`} className="flex gap-3">
-                                    {/* Community Avatar or Placeholder */}
                                     <div className="flex-shrink-0">
-                                        {post.community?.avatar ? (
-                                            <img
-                                                src={getCommunityAvatarUrl(post.community as any)}
-                                                alt={post.community.name}
-                                                className="w-8 h-8 rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500">
-                                                {post.community?.name?.charAt(0).toUpperCase() || "C"}
-                                            </div>
-                                        )}
+                                        <img
+                                            src={
+                                                post.community
+                                                    ? getCommunityAvatarUrl(post.community as any)
+                                                    : getAuthorAvatar(post)
+                                            }
+                                            alt={post.community?.name || post.author.name}
+                                            className="w-8 h-8 rounded-full object-cover"
+                                        />
                                     </div>
 
                                     <div className="flex-1 min-w-0">
@@ -88,8 +86,8 @@ const RecentPostRightSidebar: React.FC = () => {
                         ))}
                     </ul>
                 )}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

@@ -11,8 +11,11 @@ import {
   rejectMember,
   updatePrivacy,
   restrictMember,
+  kickMember,
+  unrestrictMember,
   getUserCommunities,
   getUserCreatedCommunities,
+  getUserPublicCommunities,
   isUserMemberOfCommunity,
   updateCommunity,
   deleteCommunity,
@@ -26,6 +29,10 @@ import {
   adminUpdateCommunity,
   getRecentCommunities,
   toggleNotification,
+
+  addModerator,
+  removeModerator,
+  getManagedCommunities,
 } from "../controllers/communityController.js";
 
 const router = express.Router();
@@ -37,7 +44,10 @@ router.delete("/admin/:id", verifyToken, isAdmin, adminDeleteCommunity);
 
 /*---------------- USER COMMUNITIES ----------------*/
 router.get("/my-created", verifyToken, getUserCreatedCommunities);
+
+router.get("/managed", verifyToken, getManagedCommunities);
 router.get("/getUser", verifyToken, getUserCommunities);
+router.get("/user/:userId", verifyTokenOptional, getUserPublicCommunities);
 
 /*---------------- PENDING ----------------*/
 router.get("/recent/history", verifyToken, getRecentCommunities);
@@ -71,7 +81,13 @@ router.post("/:communityId/approve/:memberId", verifyToken, approveMember);
 router.post("/:communityId/reject/:memberId", verifyToken, rejectMember);
 
 router.delete("/:id", verifyToken, deleteCommunity);
-router.delete("/:communityId/restrict/:memberId", verifyToken, restrictMember);
+router.post("/:communityId/restrict/:memberId", verifyToken, restrictMember);
+router.delete("/:communityId/kick/:memberId", verifyToken, kickMember);
+
+router.delete("/:communityId/unrestrict/:memberId", verifyToken, unrestrictMember);
+
+router.post("/:communityId/moderators/:memberId", verifyToken, addModerator);
+router.delete("/:communityId/moderators/:memberId", verifyToken, removeModerator);
 
 router.put("/:id", verifyToken, updateCommunity);
 router.put("/:id/privacy", verifyToken, updatePrivacy);

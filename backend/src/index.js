@@ -21,6 +21,8 @@ import reportRoutes from "./routes/reportRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import modMailRoutes from "./routes/modMailRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import shopRoutes from "./routes/shopRoutes.js";
 
 import modMailSocket from "./socket/modMailSocket.js";
 
@@ -72,6 +74,8 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api", modMailRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/shop", shopRoutes);
 
 // Xử lý lỗi chung
 app.use((err, req, res, next) => {

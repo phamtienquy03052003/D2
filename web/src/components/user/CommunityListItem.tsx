@@ -45,9 +45,8 @@ const CommunityListItem: React.FC<CommunityListItemProps> = ({
             onAction?.(community);
           }}
           disabled={loading === community._id}
-          className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${
-            loading === community._id ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+          className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${loading === community._id ? "opacity-50 cursor-not-allowed" : ""
+            }`}
         >
           {loading === community._id ? "..." : "Hủy yêu cầu"}
         </button>
@@ -62,9 +61,8 @@ const CommunityListItem: React.FC<CommunityListItemProps> = ({
             onAction?.(community);
           }}
           disabled={loading === community._id}
-          className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${
-            loading === community._id ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+          className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${loading === community._id ? "opacity-50 cursor-not-allowed" : ""
+            }`}
         >
           {loading === community._id ? "..." : actionLabel || "Rời"}
         </button>
@@ -78,9 +76,8 @@ const CommunityListItem: React.FC<CommunityListItemProps> = ({
           onAction?.(community);
         }}
         disabled={loading === community._id}
-        className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${
-          loading === community._id ? "opacity-50 cursor-not-allowed" : ""
-        }`}
+        className={`text-sm font-medium text-gray-800 border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-200 transition ${loading === community._id ? "opacity-50 cursor-not-allowed" : ""
+          }`}
       >
         {loading === community._id ? "..." : "Tham gia"}
       </button>
@@ -93,21 +90,15 @@ const CommunityListItem: React.FC<CommunityListItemProps> = ({
       className="flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer transition-all border-b border-gray-100 pb-3"
     >
       <div className="flex items-center gap-3">
-        {community.avatar ? (
-          <img
-            src={getCommunityAvatarUrl(community)}
-            alt={community.name}
-            className="w-10 h-10 rounded-full object-cover border"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold border">
-            {community.name?.charAt(0).toUpperCase()}
-          </div>
-        )}
+        <img
+          src={getCommunityAvatarUrl(community as any)}
+          alt={community.name}
+          className="w-10 h-10 rounded-full object-cover border"
+        />
 
         <div>
           <div className="flex items-center gap-1">
-            <h3 className="text-md font-semibold text-gray-800">{community.name}</h3>
+            <h3 className="text-md font-semibold text-gray-800 break-all">{community.name}</h3>
             {community.isCreator && (
               <span className="text-gray-500" title="Cộng đồng do bạn tạo">
                 <Shield size={14} />
@@ -115,8 +106,8 @@ const CommunityListItem: React.FC<CommunityListItemProps> = ({
             )}
           </div>
 
-          <p className="text-sm text-gray-600">
-            {truncate(community.description || "Không có mô tả.", 30)}
+          <p className="text-sm text-gray-600 break-all">
+            {truncate(community.description || "Không có mô tả.", 70)}
           </p>
 
           {community.membersCount !== undefined && (

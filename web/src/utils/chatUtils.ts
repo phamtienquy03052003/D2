@@ -26,7 +26,29 @@ export const sortConversations = (conversations: ConversationType[]): Conversati
 
 export const formatTime = (isoDate: string): string => {
   const date = new Date(isoDate);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+};
+
+export const formatDateSeparator = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return "Hôm nay";
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return "Hôm qua";
+  }
+
+  const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+  const dayName = days[date.getDay()];
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${dayName} ${day}/${month}/${year}`;
 };
 
 export const isGroupConversation = (conversation: ConversationType): boolean => conversation.isGroup;

@@ -17,52 +17,40 @@ const PostScopeSelector: React.FC<PostScopeSelectorProps> = ({
 }) => {
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-4 text-sm font-semibold text-gray-600">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            className="text-blue-600 focus:ring-blue-500"
-            checked={postScope === "personal"}
-            onChange={() => {
+      <div className="w-full">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Đăng bài tại</label>
+        <select
+          value={postScope === "personal" ? "personal_scope" : communityId}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === "personal_scope") {
               onScopeChange("personal");
               onCommunityChange("");
-            }}
-          />
-          <span>Đăng bài cá nhân</span>
-        </label>
-
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="radio"
-            className="text-blue-600 focus:ring-blue-500"
-            checked={postScope === "community"}
-            onChange={() => onScopeChange("community")}
-          />
-          <span>Đăng vào cộng đồng</span>
-        </label>
-      </div>
-
-      {postScope === "community" && (
-        <div>
-          <select
-            value={communityId}
-            onChange={(e) => onCommunityChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-            required
-          >
-            <option value="">Chọn cộng đồng</option>
+            } else {
+              onScopeChange("community");
+              onCommunityChange(value);
+            }
+          }}
+          className="w-full border border-gray-300 rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+        >
+          <option value="personal_scope">Trang cá nhân</option>
+          <optgroup label="Cộng đồng của bạn">
             {communities.map((c: any) => (
               <option key={c._id} value={c._id}>
                 {c.name}
-                {c.postApprovalRequired ? " • Chờ duyệt bài viết" : ""}
               </option>
             ))}
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            * Cộng đồng bật xét duyệt bài viết sẽ yêu cầu mod phê duyệt trước khi bài viết hiển thị công khai.
+          </optgroup>
+        </select>
+
+        {postScope === "community" && communityId && (
+          <p className="text-xs text-gray-500 mt-2">
+            {communities.find((c: any) => c._id === communityId)?.postApprovalRequired
+              ? "* Cộng đồng này yêu cầu phê duyệt bài viết trước khi hiển thị."
+              : "* Bài viết sẽ được đăng ngay lập tức."}
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

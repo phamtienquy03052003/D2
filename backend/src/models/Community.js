@@ -7,10 +7,17 @@ const communitySchema = new mongoose.Schema(
     avatar: { type: String, default: "" },
     creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    moderators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     isPrivate: { type: Boolean, default: false },
     isApproval: { type: Boolean, default: false },
     pendingMembers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    restrictedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    restrictedUsers: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        restrictedAt: { type: Date, default: Date.now },
+        expiresAt: { type: Date }, // null = vĩnh viễn (nếu có logic đó), hoặc bắt buộc có time
+      },
+    ],
     notificationSubscribers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     postApprovalRequired: { type: Boolean, default: false },
     status: {

@@ -33,11 +33,6 @@ export const fetchReportDetails = async (targetId: string) => {
   };
 };
 
-export const hideTarget = async (targetType: "Post" | "Comment", targetId: string) => {
-  const res = await reportApi.hideTarget(targetType, targetId);
-  return res.data;
-};
-
 export const deleteTarget = async (targetType: "Post" | "Comment", targetId: string) => {
   const res = await reportApi.deleteTarget(targetType, targetId);
   return res.data;

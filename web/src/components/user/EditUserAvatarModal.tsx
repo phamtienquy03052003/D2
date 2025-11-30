@@ -83,7 +83,7 @@ const EditUserAvatarModal: React.FC<EditUserAvatarModalProps> = ({
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+            className="px-6 py-2 rounded-full bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-colors"
           >
             Hủy
           </button>
@@ -91,9 +91,7 @@ const EditUserAvatarModal: React.FC<EditUserAvatarModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className={`px-4 py-2 rounded-lg text-white ${
-              loading ? "bg-gray-400" : "bg-orange-500 hover:bg-orange-600"
-            }`}
+            className="px-6 py-2 rounded-full bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Đang lưu..." : "Lưu"}
           </button>

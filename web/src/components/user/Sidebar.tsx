@@ -7,6 +7,9 @@ import {
   Users,
   PlusCircle,
   Mail,
+  Clock,
+  Flame,
+  TrendingUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { communityService } from "../../services/communityService";
@@ -88,11 +91,24 @@ const Sidebar: React.FC<SidebarProps> = ({
       icon: <Home className="w-5 h-5" />,
       path: "/trang-chu",
     },
+
     {
-      id: "user-modmail",
-      label: "Tin nhắn với cộng đồng",
-      icon: <Mail className="w-5 h-5" />,
-      path: "/tin-nhan-cong-dong",
+      id: "hot",
+      label: "Quan tâm",
+      icon: <Flame className="w-5 h-5" />,
+      path: "/quan-tam",
+    },
+    {
+      id: "new",
+      label: "Mới nhất",
+      icon: <Clock className="w-5 h-5" />,
+      path: "/moi-nhat",
+    },
+    {
+      id: "top",
+      label: "Hàng đầu",
+      icon: <TrendingUp className="w-5 h-5" />,
+      path: "/hang-dau",
     },
   ];
 
@@ -199,6 +215,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <Users className="w-4 h-4 mr-3 text-gray-500" />
                   <span className="text-gray-700">Quản lý cộng đồng</span>
                 </button>
+
+                {/* Nút liên hệ cộng đồng */}
+                <button
+                  onClick={() => navigate("/tin-nhan-cong-dong")}
+                  className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-100 rounded text-sm"
+                >
+                  <Mail className="w-4 h-4 mr-3 text-gray-500" />
+                  <span className="text-gray-700">Liên hệ cộng đồng</span>
+                </button>
               </div>
             )}
           </div>
@@ -227,17 +252,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                       className="w-full flex items-center px-3 py-2 text-left hover:bg-gray-100 rounded text-sm"
                     >
                       {/* Hiển thị avatar cộng đồng bằng utils */}
-                      {community.avatar ? (
-                        <img
-                          src={community.avatar}
-                          alt={community.name}
-                          className="w-6 h-6 rounded-full mr-3 object-cover border"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold mr-3 border">
-                          {community.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <img
+                        src={community.avatar}
+                        alt={community.name}
+                        className="w-6 h-6 rounded-full mr-3 object-cover border"
+                      />
 
                       {/* 🔹 Hiển thị tên cộng đồng (rút gọn nếu > 10 ký tự) */}
                       <div className="flex-1">

@@ -6,6 +6,7 @@ import User from "../models/User.js"; // <-- quan trọng
 // Lấy tất cả comment của 1 bài post kèm phản hồi
 export const getCommentsByPost = async (req, res) => {
   try {
+    const { sort = 'best' } = req.query; // 'best' | 'newest'
     const post = await Post.findById(req.params.postId).select("status");
     if (!post) return res.status(404).json({ message: "Post không tồn tại" });
     if (post.status === "removed")
@@ -14,8 +15,8 @@ export const getCommentsByPost = async (req, res) => {
       return res.status(403).json({ message: "Bài viết chưa được duyệt" });
 
     const comments = await Comment.find({ post: req.params.postId, status: "active" })
-      .populate("author", "name email avatar")
-      .sort({ createdAt: 1 });
+      .populate("author", "name email avatar level selectedNameTag")
+      .sort({ createdAt: 1 }); // Lấy tất cả theo thời gian tạo để dựng cây
 
     const commentMap = {};
     comments.forEach((c) => (commentMap[c._id] = { ...c.toObject(), replies: [] }));
@@ -28,6 +29,18 @@ export const getCommentsByPost = async (req, res) => {
         roots.push(commentMap[c._id]);
       }
     });
+
+    // Sort roots based on filter
+    if (sort === 'newest') {
+      roots.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else {
+      // Default: Best (Vote count: likes - dislikes)
+      roots.sort((a, b) => {
+        const scoreA = (a.likes?.length || 0) - (a.dislikes?.length || 0);
+        const scoreB = (b.likes?.length || 0) - (b.dislikes?.length || 0);
+        return scoreB - scoreA;
+      });
+    }
 
     res.json(roots);
   } catch (error) {
@@ -171,7 +184,7 @@ export const updateComment = async (req, res) => {
     comment.content = content;
     comment.isEdited = true; // Ghi nhận đã chỉnh sửa
     // updatedAt sẽ được tự động cập nhật bởi timestamps: true
-    
+
     await comment.save();
 
     const io = req.app.get("io");
@@ -205,10 +218,10 @@ export const deleteComment = async (req, res) => {
 
     // Xóa các reply con
     await Comment.updateMany(
-      { parentComment: comment._id }, 
+      { parentComment: comment._id },
       { status: "removed", removedBy: req.user.id, removedAt: removalTime }
     );
-    
+
     // Xóa comment cha
     comment.status = "removed";
     comment.removedBy = req.user.id; // Ghi nhận TÁC GIẢ xóa
@@ -227,7 +240,7 @@ export const deleteComment = async (req, res) => {
 export const adminGetAllComments = async (req, res) => {
   try {
     const comments = await Comment.find({ status: "active" })
-      .populate("author", "name email avatar")
+      .populate("author", "name email avatar level selectedNameTag")
       .populate("post", "title")
       .sort({ createdAt: -1 });
 
@@ -255,10 +268,10 @@ export const adminDeleteComment = async (req, res) => {
 
     // Xóa các reply con
     await Comment.updateMany(
-      { parentComment: comment._id }, 
+      { parentComment: comment._id },
       { status: "removed", removedBy: req.user.id, removedAt: removalTime }
     );
-    
+
     // Xóa comment cha
     comment.status = "removed";
     comment.removedBy = req.user.id; // Ghi nhận ADMIN/MOD xóa
@@ -272,4 +285,97 @@ export const adminDeleteComment = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Lỗi server", error: error.message });
   }
+};
+
+// Lấy comment của user
+export const getCommentsByUser = async (req, res) => {
+  try {
+    const comments = await Comment.find({ author: req.params.userId, status: "active" })
+      .populate("post", "title")
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Lấy comment đã like
+export const getLikedComments = async (req, res) => {
+  try {
+    const comments = await Comment.find({ likes: req.user.id, status: "active" })
+      .populate("author", "name email avatar level selectedNameTag")
+      .populate("post", "title")
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Lấy comment đã dislike
+export const getDislikedComments = async (req, res) => {
+  try {
+    const comments = await Comment.find({ dislikes: req.user.id, status: "active" })
+      .populate("author", "name email avatar level selectedNameTag")
+      .populate("post", "title")
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Lấy comment bị xóa (moderation)
+export const getRemovedForModeration = async (req, res) => {
+  try {
+    const comments = await Comment.find({ status: "removed" })
+      .populate("author", "name email avatar")
+      .populate("removedBy", "name email")
+      .sort({ removedAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Lấy comment đã sửa (moderation)
+export const getEditedForModeration = async (req, res) => {
+  try {
+    const comments = await Comment.find({ isEdited: true })
+      .populate("author", "name email avatar")
+      .sort({ updatedAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Moderate comment (ví dụ: xóa, khôi phục)
+export const moderateComment = async (req, res) => {
+  try {
+    const { action } = req.body; // 'restore', 'delete'
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) return res.status(404).json({ message: "Không tìm thấy comment" });
+
+    if (action === "restore") {
+      comment.status = "active";
+      comment.removedBy = null;
+      comment.removedAt = null;
+    } else if (action === "delete") {
+      comment.status = "removed";
+      comment.removedBy = req.user.id;
+      comment.removedAt = new Date();
+    }
+
+    await comment.save();
+    res.json({ message: "Đã cập nhật trạng thái comment", comment });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+// Đánh dấu đã xem comment đã sửa
+export const markEditedCommentSeen = async (req, res) => {
+  // Logic placeholder
+  res.json({ message: "Đã đánh dấu đã xem" });
 };

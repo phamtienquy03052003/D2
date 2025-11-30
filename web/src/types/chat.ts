@@ -15,6 +15,10 @@ export interface MessageType {
   content?: string;
   type: "text" | "image" | "file";
   fileUrl?: string;
+  reactions?: {
+    userId: string;
+    emoji: string;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +30,8 @@ export interface ConversationType {
   avatar?: string;
   createdBy: string;
   members: UserType[];
+  pendingMembers?: UserType[];
+  admins?: UserType[];
   lastMessage?: MessageType;
   unreadCount?: number;
   updatedAt: string;

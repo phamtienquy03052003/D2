@@ -7,4 +7,6 @@ export const conversationApi = {
   getConversationById: (conversationId: string) => apiClient.get(`/conversations/detail/${conversationId}`),
   updateGroupMembers: (conversationId: string, addMembers: string[] = [], removeMembers: string[] = []) =>
     apiClient.patch(`/conversations/group/${conversationId}/members`, { addMembers, removeMembers }),
+  accept: (conversationId: string) => apiClient.post(`/conversations/${conversationId}/accept`),
+  reject: (conversationId: string) => apiClient.post(`/conversations/${conversationId}/reject`),
 };

@@ -1,85 +1,124 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { getUserAvatarUrl } from "../../utils/userUtils";
+import { Cake, Lock, Globe, Pencil, UserCheck, FileCheck } from "lucide-react";
+import EditCommunityNameModal from "./EditCommunityNameModal";
+import EditCommunityDescriptionModal from "./EditCommunityDescriptionModal";
+import EditCommunitySettingsModal from "./EditCommunitySettingsModal";
 
 interface CommunityInfoSidebarProps {
   community: any;
   isMember: boolean;
-  formatNumber: (num: number) => string;
+  isCreator?: boolean;
+  isModerator?: boolean;
+  onUpdate?: (data: any) => Promise<void>;
 }
 
 const CommunityInfoSidebar: React.FC<CommunityInfoSidebarProps> = ({
   community,
-  isMember,
-  formatNumber,
+  isCreator,
+  isModerator,
+  onUpdate,
 }) => {
-  const [showMembers, setShowMembers] = useState(true);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [showDescModal, setShowDescModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  const handleUpdate = async (data: any) => {
+    if (onUpdate) {
+      await onUpdate(data);
+    }
+  };
 
   return (
     <div className="lg:col-span-1">
-      <div className="rounded-xl p-4 bg-white">
-        <h2 className="text-lg font-semibold mb-2">{community.name}</h2>
-
-        <p className="text-sm text-gray-600 mb-2 break-all">
-          {community.description?.length > 130
-            ? community.description.slice(0, 130) + "..."
-            : community.description || "Chưa có mô tả."}
-        </p>
-
-        <p className="text-sm text-gray-700 mb-2">
-          <strong>Thành viên:</strong> {formatNumber(community.members?.length || 0)}
-        </p>
-
-        {community.creator?.name && (
-          <>
-            <p className="text-sm text-gray-700">
-              <strong>Người tạo:</strong> {community.creator.name}
-            </p>
-
-            <p className="text-sm text-gray-700">
-              <strong>Trạng thái:</strong> {community.isPrivate ? "Riêng tư" : "Công khai"}
-            </p>
-          </>
-        )}
-
-        <p className="text-sm text-gray-700 mb-3">
-          <strong>Ngày tạo:</strong>{" "}
-          {new Date(community.createdAt).toLocaleDateString("vi-VN")}
-        </p>
-
-        {community.isPrivate && !isMember ? null : (
-          <div className="border-t pt-2">
+      <div className="rounded-xl p-4 bg-gray-100">
+        <div className="flex items-start justify-between mb-2 gap-2">
+          <h2 className="text-lg font-bold text-gray-900 break-words flex-1 min-w-0">{community.name}</h2>
+          {(isCreator || isModerator) && (
             <button
-              onClick={() => setShowMembers(!showMembers)}
-              className="flex items-center justify-between w-full text-left text-gray-800 font-medium hover:bg-gray-50 p-2 rounded-lg"
+              onClick={() => setShowNameModal(true)}
+              className="p-1.5 rounded-full hover:bg-gray-200 text-gray-600 shrink-0 mt-0.5"
             >
-              <span>Thành viên</span>
-              {showMembers ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              <Pencil size={16} />
             </button>
+          )}
+        </div>
 
-            {showMembers && (
-              <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
-                {community.members?.map((m: any) => (
-                  <div key={m._id} className="flex items-center gap-2 p-1 rounded hover:bg-gray-50">
-                    {m.avatar ? (
-                      <img
-                        src={getUserAvatarUrl(m)}
-                        alt={m.name}
-                        className="w-7 h-7 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
-                        {m.name?.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                    <span className="text-sm text-gray-800 truncate">{m.name}</span>
-                  </div>
-                ))}
-              </div>
+        <div className="flex items-start justify-between mb-4 gap-2">
+          <p className="text-sm text-gray-600 break-words flex-1 min-w-0">
+            {community.description || "Chưa có mô tả."}
+          </p>
+          {(isCreator || isModerator) && (
+            <button
+              onClick={() => setShowDescModal(true)}
+              className="p-1 rounded-full hover:bg-gray-200 text-gray-600 shrink-0"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Cake size={18} />
+            <span>
+              Đã tạo {new Date(community.createdAt).toLocaleDateString("vi-VN", { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              {community.isPrivate ? <Lock size={18} /> : <Globe size={18} />}
+              <span>{community.isPrivate ? "Riêng tư" : "Công khai"}</span>
+            </div>
+            {(isCreator || isModerator) && (
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className="p-1 rounded-full hover:bg-gray-200 text-gray-600 shrink-0"
+              >
+                <Pencil size={14} />
+              </button>
             )}
           </div>
-        )}
+
+          <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <UserCheck size={18} />
+              <span>Xét duyệt thành viên: {community.isApproval ? "Bật" : "Tắt"}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <FileCheck size={18} />
+              <span>Xét duyệt bài viết: {community.postApprovalRequired ? "Bật" : "Tắt"}</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {showNameModal && (
+        <EditCommunityNameModal
+          currentName={community.name}
+          onClose={() => setShowNameModal(false)}
+          onSave={(name) => handleUpdate({ name })}
+        />
+      )}
+
+      {showDescModal && (
+        <EditCommunityDescriptionModal
+          currentDescription={community.description}
+          onClose={() => setShowDescModal(false)}
+          onSave={(description) => handleUpdate({ description })}
+        />
+      )}
+
+      {showSettingsModal && (
+        <EditCommunitySettingsModal
+          community={community}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={(settings) => handleUpdate(settings)}
+        />
+      )}
     </div>
   );
 };

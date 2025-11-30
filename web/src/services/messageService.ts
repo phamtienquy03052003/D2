@@ -13,4 +13,12 @@ export const messageService = {
   async markAsRead(conversationId: string, userId: string, lastReadMessageId?: string): Promise<void> {
     await messageApi.markAsRead(conversationId, userId, lastReadMessageId);
   },
+  async toggleReaction(messageId: string, userId: string, emoji: string): Promise<MessageType> {
+    const res = await messageApi.toggleReaction(messageId, userId, emoji);
+    return res.data as MessageType;
+  },
+  async searchMessages(conversationId: string, query: string): Promise<MessageType[]> {
+    const res = await messageApi.searchMessages(conversationId, query);
+    return res.data as MessageType[];
+  },
 };

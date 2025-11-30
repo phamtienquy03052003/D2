@@ -103,15 +103,11 @@ const CommunitySelector: React.FC<CommunitySelectorProps> = ({
                   name={single ? "community-selector" : undefined}
                 />
                 <div className="flex items-center gap-2">
-                  {c.avatar ? (
-                    <img
-                      src={getCommunityAvatarUrl(c)}
-                      alt=""
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-gray-200" />
-                  )}
+                  <img
+                    src={getCommunityAvatarUrl(c)}
+                    alt=""
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
                   <span className="text-sm">{c.name}</span>
                 </div>
               </label>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Trophy, ArrowUp } from "lucide-react";
 import { pointService } from "../../services/pointService";
-import { getUserAvatarUrl,getUserDisplayName } from "../../utils/userUtils";
+import { getUserAvatarUrl } from "../../utils/userUtils";
 import type { User } from "../../types/User";
 
 const RightSidebar: React.FC = () => {
@@ -38,23 +38,16 @@ const RightSidebar: React.FC = () => {
             >
               <div className="flex items-center">
                 <span
-                  className={`w-6 text-sm font-semibold ${
-                    index < 3 ? "text-yellow-500" : "text-gray-500"
-                  }`}
+                  className={`w-6 text-sm font-semibold ${index < 3 ? "text-yellow-500" : "text-gray-500"
+                    }`}
                 >
                   {index + 1}
                 </span>
-                {user.avatar ? (
-                  <img
-                    src={getUserAvatarUrl(user as any)}
-                    alt={user.name}
-                    className="w-8 h-8 rounded-full mr-3"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full mr-3 bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                    {getUserDisplayName(user).charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={getUserAvatarUrl(user as any)}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover mr-3"
+                />
                 <span className="text-sm font-medium text-gray-800 truncate">
                   {user.name}
                 </span>

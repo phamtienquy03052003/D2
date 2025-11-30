@@ -30,8 +30,18 @@ export const communityService = {
     return data as Community[];
   },
 
+  async getUserPublicCommunities(userId: string): Promise<Community[]> {
+    const data = await communityApi.getUserPublicCommunities(userId);
+    return data as Community[];
+  },
+
   async getMyCreatedCommunities(): Promise<Community[]> {
     const data = await communityApi.getMyCreatedCommunities();
+    return data as Community[];
+  },
+
+  async getManagedCommunities(): Promise<Community[]> {
+    const data = await communityApi.getManagedCommunities();
     return data as Community[];
   },
 
@@ -95,8 +105,16 @@ export const communityService = {
     return data as { isMember: boolean };
   },
 
-  async restrictMember(communityId: string, memberId: string): Promise<void> {
-    await communityApi.restrictMember(communityId, memberId);
+  async restrictMember(communityId: string, memberId: string, duration: string): Promise<void> {
+    await communityApi.restrictMember(communityId, memberId, duration);
+  },
+
+  async kickMember(communityId: string, memberId: string): Promise<void> {
+    await communityApi.kickMember(communityId, memberId);
+  },
+
+  async unrestrictMember(communityId: string, memberId: string): Promise<void> {
+    await communityApi.unrestrictMember(communityId, memberId);
   },
 
   async getPendingMembers(communityId: string): Promise<PendingMembersResponse> {
@@ -110,6 +128,14 @@ export const communityService = {
 
   async rejectMember(communityId: string, memberId: string): Promise<void> {
     await communityApi.rejectMember(communityId, memberId);
+  },
+
+  async addModerator(communityId: string, memberId: string): Promise<void> {
+    await communityApi.addModerator(communityId, memberId);
+  },
+
+  async removeModerator(communityId: string, memberId: string): Promise<void> {
+    await communityApi.removeModerator(communityId, memberId);
   },
 
   async adminGetAll(): Promise<Community[]> {

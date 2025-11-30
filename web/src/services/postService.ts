@@ -18,6 +18,7 @@ export interface CreatePostResponse {
   message?: string;
   post: Post;
   bonusPoint?: number;
+  restricted?: boolean;
 }
 
 export const postService = {
@@ -79,9 +80,18 @@ export const postService = {
     return normalizeList(res.data);
   },
 
-  async getEditedForModeration(communityIds?: string[]): Promise<Post[]> {
-    const res = await postApi.getEditedForModeration(communityIds);
+  async getEditedForModeration(communityIds?: string[], status?: string): Promise<Post[]> {
+    const res = await postApi.getEditedForModeration(communityIds, status);
     return normalizeList(res.data);
+  },
+
+  async markEditedPostSeen(id: string): Promise<void> {
+    await postApi.markEditedPostSeen(id);
+  },
+
+  async getPostHistory(id: string): Promise<any[]> {
+    const res = await postApi.getPostHistory(id);
+    return res.data;
   },
 
   async save(id: string): Promise<void> {
@@ -97,8 +107,18 @@ export const postService = {
     return normalizeList(res.data);
   },
 
-  async getRecentPosts(): Promise<Post[]> {
-    const res = await postApi.getRecentPosts();
+  async getRecentPosts(limit?: number): Promise<Post[]> {
+    const res = await postApi.getRecentPosts(limit);
+    return normalizeList(res.data);
+  },
+
+  async getLikedPosts(): Promise<Post[]> {
+    const res = await postApi.getLikedPosts();
+    return normalizeList(res.data);
+  },
+
+  async getDislikedPosts(): Promise<Post[]> {
+    const res = await postApi.getDislikedPosts();
     return normalizeList(res.data);
   },
 };

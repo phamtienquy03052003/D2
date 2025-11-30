@@ -45,9 +45,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       role: data.role,
       isActive: data.isActive,
       isPrivate: data.isPrivate,
+      phone: data.phone,
+      gender: data.gender,
       createdAt: data.createdAt,
       updatedAt: data.updatedAt,
       totalPoints: resPoint?.totalPoints ?? 0,
+      inventory: data.inventory,
+      selectedNameTag: data.selectedNameTag,
     };
   };
 

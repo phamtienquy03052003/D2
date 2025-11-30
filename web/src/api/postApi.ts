@@ -17,12 +17,16 @@ export const postApi = {
         communities: communityIds && communityIds.length ? communityIds.join(",") : undefined,
       },
     }),
-  getEditedForModeration: (communityIds?: string[]) =>
+  getEditedForModeration: (communityIds?: string[], status?: string) =>
     apiClient.get("/posts/moderation/edited", {
       params: {
         communities: communityIds && communityIds.length ? communityIds.join(",") : undefined,
+        status,
       },
     }),
+  markEditedPostSeen: (id: string) => apiClient.post(`/posts/${id}/seen`),
+  getPostHistory: (id: string) => apiClient.get(`/posts/${id}/history`),
+
   // -------------------------
   moderate: (id: string, data: { action: "approve" | "reject" }) =>
     apiClient.post(`/posts/${id}/moderate`, data),
@@ -44,5 +48,7 @@ export const postApi = {
   save: (id: string) => apiClient.post(`/posts/${id}/save`),
   unsave: (id: string) => apiClient.delete(`/posts/${id}/save`),
   getSavedPosts: () => apiClient.get("/posts/saved/all"),
-  getRecentPosts: () => apiClient.get("/posts/recent/history"),
+  getRecentPosts: (limit?: number) => apiClient.get(`/posts/recent/history${limit ? `?limit=${limit}` : ""}`),
+  getLikedPosts: () => apiClient.get("/posts/liked/all"),
+  getDislikedPosts: () => apiClient.get("/posts/disliked/all"),
 };

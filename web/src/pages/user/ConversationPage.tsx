@@ -6,6 +6,7 @@ import ChatWindow from "../../components/user/ChatWindow";
 import { conversationService } from "../../services/conversationService";
 import { useAuth } from "../../context/AuthContext";
 import UserLayout from "../../UserLayout";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const ConversationPage: React.FC = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -29,9 +30,7 @@ const ConversationPage: React.FC = () => {
   if (!currentConversation)
     return (
       <UserLayout activeMenuItem="chat">
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          Đang tải cuộc trò chuyện...
-        </div>
+        <LoadingSpinner />
       </UserLayout>
     );
 

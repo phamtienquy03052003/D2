@@ -45,9 +45,9 @@ const ResetPassword: React.FC = () => {
         />
 
         {/* Main Content */}
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-10 lg:ml-[calc(128px+16rem)]">
+        <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 lg:ml-[calc(64px+16rem)]">
           <div className="flex gap-6">
-            <div className="flex-1 max-w-2xl mx-auto">
+            <div className="flex-1 max-w-3xl mx-auto">
               <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
                 <h2 className="text-2xl font-semibold text-gray-900 text-center mb-2">
                   Đặt lại mật khẩu

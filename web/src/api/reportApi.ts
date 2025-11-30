@@ -22,10 +22,6 @@ export const reportApi = {
   getReportDetailsForOwner: (targetId: string) =>
     apiClient.get(`/reports/owner/target/${targetId}`),
 
-  // OWNER: ẩn target
-  hideTarget: (targetType: "Post" | "Comment", targetId: string) =>
-    apiClient.patch(`/reports/owner/hide/${targetType}/${targetId}`),
-
   // OWNER: xóa target
   deleteTarget: (targetType: "Post" | "Comment", targetId: string) =>
     apiClient.delete(`/reports/owner/delete/${targetType}/${targetId}`),

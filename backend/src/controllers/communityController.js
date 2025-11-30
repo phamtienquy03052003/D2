@@ -18,6 +18,24 @@ export const createCommunity = async (req, res) => {
     if (exists)
       return res.status(400).json({ message: "Community name already exists" });
 
+    // --- LOGIC MỚI: KIỂM TRA SỐ LƯỢNG CỘNG ĐỒNG ĐÃ TẠO ---
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const createdCount = await Community.countDocuments({
+      creator: req.user.id,
+      status: "active",
+    });
+
+    const maxCommunities = (user.level || 0) + 1;
+
+    if (createdCount >= maxCommunities) {
+      return res.status(400).json({
+        message: `Bạn chỉ được tạo tối đa ${maxCommunities} cộng đồng (Cấp ${user.level || 0}). Hãy nâng cấp để tạo thêm!`,
+      });
+    }
+    // -----------------------------------------------------
+
     const community = new Community({
       name,
       description,
@@ -60,6 +78,56 @@ export const getUserCreatedCommunities = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(communities);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/*--------------------------------------------
+  LẤY COMMUNITY PUBLIC CỦA USER (CHO MODAL)
+---------------------------------------------*/
+export const getUserPublicCommunities = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const currentUserId = req.user ? req.user.id : null;
+    const isOwner = currentUserId && currentUserId === userId;
+
+    const query = {
+      members: userId,
+      status: "active"
+    };
+
+    // Nếu không phải owner thì chỉ lấy public
+    if (!isOwner) {
+      query.isPrivate = false;
+    }
+
+    // Tìm các community mà user là member, active và không private (nếu không phải owner)
+    const communities = await Community.find(query)
+      .select("name avatar description members creator pendingMembers")
+      .sort({ createdAt: -1 });
+
+    // Map để trả về thêm số lượng thành viên và trạng thái quan hệ
+    const result = communities.map(c => {
+      const isMember = currentUserId ? c.members.some(m => m.toString() === currentUserId) : false;
+      const isCreator = currentUserId ? c.creator.toString() === currentUserId : false;
+      const isPending = currentUserId ? c.pendingMembers.some(p => p.toString() === currentUserId) : false;
+
+      return {
+        _id: c._id,
+        name: c.name,
+        avatar: c.avatar,
+        description: c.description,
+        membersCount: c.members.length,
+        isMember,
+        isCreator,
+        isPending,
+        creator: c.creator // Return creator info
+      };
+    });
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -114,7 +182,8 @@ export const getCommunityById = async (req, res) => {
 
     const community = await Community.findById(id)
       .populate("creator", "name email avatar")
-      .populate("members", "name email avatar");
+      .populate("members", "name email avatar")
+      .populate("moderators", "name email avatar");
 
     if (!community)
       return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
@@ -230,7 +299,10 @@ export const getPendingMembers = async (req, res) => {
     if (community.status === "removed")
       return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
 
-    if (community.creator._id.toString() !== req.user.id)
+    const isCreator = community.creator._id.toString() === req.user.id;
+    const isMod = community.moderators.some((m) => m.toString() === req.user.id);
+
+    if (!isCreator && !isMod)
       return res.status(403).json({ message: "Bạn không có quyền xem danh sách chờ" });
 
     res.json({ pendingMembers: community.pendingMembers });
@@ -324,7 +396,10 @@ export const approveMember = async (req, res) => {
     if (community.status === "removed")
       return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
 
-    if (community.creator.toString() !== req.user.id)
+    const isCreator = community.creator.toString() === req.user.id;
+    const isMod = community.moderators.some((m) => m.toString() === req.user.id);
+
+    if (!isCreator && !isMod)
       return res.status(403).json({ message: "Bạn không có quyền duyệt" });
 
     // FIX: ObjectId compare
@@ -354,7 +429,10 @@ export const rejectMember = async (req, res) => {
     if (community.status === "removed")
       return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
 
-    if (community.creator.toString() !== req.user.id)
+    const isCreator = community.creator.toString() === req.user.id;
+    const isMod = community.moderators.some((m) => m.toString() === req.user.id);
+
+    if (!isCreator && !isMod)
       return res.status(403).json({ message: "Bạn không có quyền từ chối" });
 
     if (!community.pendingMembers.some(id => id.toString() === memberId))
@@ -420,46 +498,80 @@ export const updatePrivacy = async (req, res) => {
   }
 };
 
-// Hạn chế thành viên (xóa khỏi members và thêm vào restrictedUsers)
+// Hạn chế thành viên (KHÔNG xóa khỏi members, chỉ thêm vào restrictedUsers)
 export const restrictMember = async (req, res) => {
   try {
-    console.log("restrictMember called", req.params, req.user.id);
-    const communityId = req.params.communityId;
-    const userId = req.params.memberId
+    const { communityId, memberId } = req.params;
+    const { duration } = req.body; // "24h", "7d", "1m", "1y"
 
     const community = await Community.findById(communityId);
     if (!community) {
       return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
     }
 
-    // Chỉ creator được hạn chế thành viên
-    if (community.creator.toString() !== req.user.id) {
+    const isCreator = community.creator.toString() === req.user.id;
+    const isMod = community.moderators.includes(req.user.id);
+
+    if (!isCreator && !isMod) {
       return res.status(403).json({
-        message: "Chỉ người tạo cộng đồng mới có quyền hạn chế thành viên",
+        message: "Bạn không có quyền hạn chế thành viên",
       });
     }
 
-    // Nếu user đang là creator thì không được restrict
-    if (userId === community.creator.toString()) {
+    if (memberId === community.creator.toString()) {
       return res.status(400).json({
         message: "Không thể hạn chế người tạo cộng đồng",
       });
     }
 
-    // XÓA user khỏi members[]
-    community.members = community.members.filter(
-      (id) => id.toString() !== userId
+    // Mod cannot restrict other Mods
+    if (isMod && community.moderators.includes(memberId)) {
+      return res.status(403).json({
+        message: "Kiểm duyệt viên không thể hạn chế kiểm duyệt viên khác",
+      });
+    }
+
+    // Tính thời gian hết hạn
+    let expiresAt = new Date();
+    switch (duration) {
+      case "24h":
+        expiresAt.setHours(expiresAt.getHours() + 24);
+        break;
+      case "7d":
+        expiresAt.setDate(expiresAt.getDate() + 7);
+        break;
+      case "1m":
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+        break;
+      case "1y":
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        break;
+      default:
+        return res.status(400).json({ message: "Thời gian hạn chế không hợp lệ" });
+    }
+
+    // Kiểm tra xem user đã bị restrict chưa
+    const existingIndex = community.restrictedUsers.findIndex(
+      (r) => r.user.toString() === memberId
     );
 
-    // THÊM user vào restrictedUsers nếu chưa tồn tại
-    if (!community.restrictedUsers.includes(userId)) {
-      community.restrictedUsers.push(userId);
+    if (existingIndex !== -1) {
+      // Update existing restriction
+      community.restrictedUsers[existingIndex].restrictedAt = new Date();
+      community.restrictedUsers[existingIndex].expiresAt = expiresAt;
+    } else {
+      // Add new restriction
+      community.restrictedUsers.push({
+        user: memberId,
+        restrictedAt: new Date(),
+        expiresAt: expiresAt,
+      });
     }
 
     await community.save();
 
     return res.status(200).json({
-      message: "Đã hạn chế người dùng thành công",
+      message: `Đã hạn chế người dùng trong ${duration}`,
       community,
     });
   } catch (error) {
@@ -470,18 +582,91 @@ export const restrictMember = async (req, res) => {
   }
 };
 
+// Xóa thành viên khỏi cộng đồng (Kick)
+export const kickMember = async (req, res) => {
+  try {
+    const { communityId, memberId } = req.params;
+
+    const community = await Community.findById(communityId);
+    if (!community) {
+      return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
+    }
+
+    if (community.creator.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "Chỉ người tạo cộng đồng mới có quyền xóa thành viên",
+      });
+    }
+
+    if (memberId === community.creator.toString()) {
+      return res.status(400).json({
+        message: "Không thể xóa người tạo cộng đồng",
+      });
+    }
+
+    // XÓA user khỏi members[]
+    community.members = community.members.filter(
+      (id) => id.toString() !== memberId
+    );
+
+    await community.save();
+
+    return res.status(200).json({
+      message: "Đã xóa thành viên khỏi cộng đồng",
+      community,
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa thành viên:", error);
+    return res.status(500).json({ message: "Đã xảy ra lỗi khi xóa thành viên" });
+  }
+};
+
+// Gỡ bỏ hạn chế thành viên (Unban)
+export const unrestrictMember = async (req, res) => {
+  try {
+    const { communityId, memberId } = req.params;
+
+    const community = await Community.findById(communityId);
+    if (!community) {
+      return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
+    }
+
+    const isCreator = community.creator.toString() === req.user.id;
+    const isMod = community.moderators.includes(req.user.id);
+
+    if (!isCreator && !isMod) {
+      return res.status(403).json({
+        message: "Bạn không có quyền gỡ bỏ hạn chế",
+      });
+    }
+
+    // Xóa user khỏi restrictedUsers
+    community.restrictedUsers = community.restrictedUsers.filter(
+      (r) => r.user.toString() !== memberId
+    );
+
+    await community.save();
+
+    return res.status(200).json({
+      message: "Đã gỡ bỏ hạn chế cho thành viên",
+      community,
+    });
+  } catch (error) {
+    console.error("Lỗi khi gỡ bỏ hạn chế:", error);
+    return res.status(500).json({ message: "Đã xảy ra lỗi khi gỡ bỏ hạn chế" });
+  }
+};
+
 // Lấy danh sách người dùng bị hạn chế (restrictedUsers) của 1 hoặc nhiều cộng đồng
 export const getRestrictedUsersForCommunities = async (req, res) => {
   try {
     const communitiesParam = req.query.communities || "";
 
-    // Tách list query -> thành array ObjectId hợp lệ
     const requestedIds = communitiesParam
       .split(",")
       .map((id) => id.trim())
       .filter((id) => mongoose.Types.ObjectId.isValid(id));
 
-    // Lấy các community mà user hiện tại là creator
     const ownedCommunities = await Community.find({
       creator: req.user.id,
       status: "active",
@@ -491,7 +676,6 @@ export const getRestrictedUsersForCommunities = async (req, res) => {
 
     const ownedIds = ownedCommunities.map((c) => c._id.toString());
 
-    // Lọc theo requestedIds nếu có
     const allowedIds =
       requestedIds.length > 0
         ? requestedIds.filter((id) => ownedIds.includes(id))
@@ -499,20 +683,33 @@ export const getRestrictedUsersForCommunities = async (req, res) => {
 
     if (!allowedIds.length) return res.json([]);
 
-    // Lấy thông tin restrictedUsers của các cộng đồng được phép
     const communities = await Community.find({
       _id: { $in: allowedIds },
     })
       .select("name restrictedUsers")
-      .populate("restrictedUsers", "name email avatar role");
+      .populate("restrictedUsers.user", "name email avatar role");
 
-    res.json(
-      communities.map((c) => ({
+    const result = communities.map((c) => {
+      // Filter out expired restrictions (optional, or return all and let FE handle)
+      // Here we return all, FE can show expiration status
+      const activeRestrictedUsers = c.restrictedUsers.map(r => ({
+        _id: r.user._id,
+        name: r.user.name,
+        email: r.user.email,
+        avatar: r.user.avatar,
+        role: r.user.role,
+        restrictedAt: r.restrictedAt,
+        expiresAt: r.expiresAt
+      }));
+
+      return {
         communityId: c._id,
         communityName: c.name,
-        restrictedUsers: c.restrictedUsers,
-      }))
-    );
+        restrictedUsers: activeRestrictedUsers,
+      };
+    });
+
+    res.json(result);
   } catch (err) {
     console.error("Lỗi getRestrictedUsersForCommunities:", err);
     res.status(500).json({ message: err.message });
@@ -648,9 +845,82 @@ export const adminUpdateCommunity = async (req, res) => {
   }
 };
 
+
+
 /*--------------------------------------------
-  LẤY DANH SÁCH CỘNG ĐỒNG ĐÃ XEM GẦN ĐÂY
+  ADD MODERATOR
 ---------------------------------------------*/
+export const addModerator = async (req, res) => {
+  try {
+    const { communityId, memberId } = req.params;
+
+    const community = await Community.findById(communityId);
+    if (!community)
+      return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
+
+    if (community.creator.toString() !== req.user.id)
+      return res.status(403).json({ message: "Chỉ chủ cộng đồng mới có quyền thêm kiểm duyệt viên" });
+
+    if (!community.members.includes(memberId))
+      return res.status(400).json({ message: "Người dùng không phải là thành viên" });
+
+    if (community.moderators.includes(memberId))
+      return res.status(400).json({ message: "Người dùng đã là kiểm duyệt viên" });
+
+    community.moderators.push(memberId);
+    await community.save();
+
+    res.json({ message: "Đã thêm kiểm duyệt viên", community });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/*--------------------------------------------
+  REMOVE MODERATOR
+---------------------------------------------*/
+export const removeModerator = async (req, res) => {
+  try {
+    const { communityId, memberId } = req.params;
+
+    const community = await Community.findById(communityId);
+    if (!community)
+      return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
+
+    if (community.creator.toString() !== req.user.id)
+      return res.status(403).json({ message: "Chỉ chủ cộng đồng mới có quyền xóa kiểm duyệt viên" });
+
+    community.moderators = community.moderators.filter(id => id.toString() !== memberId);
+    await community.save();
+
+    res.json({ message: "Đã xóa quyền kiểm duyệt viên", community });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/*--------------------------------------------
+  GET MANAGED COMMUNITIES (OWNER + MOD)
+---------------------------------------------*/
+export const getManagedCommunities = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const communities = await Community.find({
+      $or: [
+        { creator: userId },
+        { moderators: userId }
+      ],
+      status: "active"
+    })
+      .populate("creator", "name email avatar")
+      .sort({ createdAt: -1 });
+
+    res.json(communities);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getRecentCommunities = async (req, res) => {
   try {
     const userId = req.user.id;

@@ -24,7 +24,7 @@ export function getUserVote(post: Post, userId: string): "up" | "down" | null {
  */
 export function getAuthorAvatar(post: Post): string {
   const avatar = post.author.avatar;
-  if (!avatar) return "/default-avatar.png";
+  if (!avatar) return `${BASE_URL}/uploads/avatars/user_avatar_default.png`;
   if (avatar.startsWith("http")) return avatar;
   return `${BASE_URL}${avatar}`;
 }

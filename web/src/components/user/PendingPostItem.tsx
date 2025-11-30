@@ -16,14 +16,14 @@ const PendingPostItem: React.FC<PendingPostItemProps> = ({
 }) => {
   return (
     <div className="border border-gray-200 rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between">
+        <div className="flex-1 pr-4">
           <p className="text-sm text-gray-500">
             {post.community?.name || "Không xác định"} • {formatDateTime(post.createdAt)}
           </p>
           <h4 className="text-lg font-semibold text-gray-800">{post.title}</h4>
         </div>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold">
+        <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold shrink-0">
           Chờ duyệt
         </span>
       </div>
@@ -34,7 +34,7 @@ const PendingPostItem: React.FC<PendingPostItemProps> = ({
       )}
       {post.content && (
         <div
-          className="prose prose-sm text-gray-700 mt-3 max-w-none line-clamp-3"
+          className="prose prose-sm text-gray-700 mt-3 max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
       )}

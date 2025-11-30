@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import Header from "../../components/user/Header";
-import Sidebar from "../../components/user/Sidebar";
+import UserLayout from "../../UserLayout";
 import RightSidebar from "../../components/user/RightSidebar";
 import EditPostModal from "../../components/user/EditPostModal";
 import ConfirmModal from "../../components/user/ConfirmModal";
@@ -9,10 +8,11 @@ import CommentSection from "../../components/user/CommentSection";
 import { postService } from "../../services/postService";
 import PostCard from "../../components/user/PostCard";
 import type { Post } from "../../types/Post";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const PostDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -75,55 +75,26 @@ const PostDetail: React.FC = () => {
     }
   };
 
-  const formatNumber = (num: number): string => {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + "k";
-    return num.toString();
-  };
-
-  const timeAgo = (date: string) => {
-    const diff = (Date.now() - new Date(date).getTime()) / 1000;
-    if (diff < 60) return `${Math.floor(diff)}s trước`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h trước`;
-    return `${Math.floor(diff / 86400)}d trước`;
-  };
-
-  if (loading)
+  if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen text-gray-500">
-        Đang tải bài viết...
-      </div>
+      <UserLayout activeMenuItem="home">
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <LoadingSpinner />
+        </div>
+      </UserLayout>
     );
-
-  if (!post)
-    return (
-      <div className="flex justify-center items-center min-h-screen text-red-500">
-        Không tìm thấy bài viết.
-      </div>
-    );
+  }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-
-      <div className="flex flex-1">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          activeItem="home"
-          onItemClick={() => {}}
-        />
-
-        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 lg:ml-[calc(128px+16rem)]">
-          <div className="flex gap-6">
-            <div className="flex-1 max-w-2xl">
+    <UserLayout activeMenuItem="home">
+      <div className="flex gap-6">
+        <div className="flex-1 max-w-3xl">
+          {post ? (
+            <>
               <PostCard
                 key={post._id}
                 post={post}
                 onVote={handleVote}
-                formatNumber={formatNumber}
-                timeAgo={timeAgo}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
               />
@@ -137,11 +108,15 @@ const PostDetail: React.FC = () => {
                   Bài viết đang chờ xét duyệt bởi cộng đồng. Bạn sẽ có thể bình luận sau khi được duyệt.
                 </div>
               )}
+            </>
+          ) : (
+            <div className="text-center py-10 text-gray-500">
+              Không tìm thấy bài viết
             </div>
-
-            <RightSidebar />
-          </div>
+          )}
         </div>
+
+        <RightSidebar />
       </div>
 
       {editingPost && (
@@ -160,7 +135,7 @@ const PostDetail: React.FC = () => {
           onCancel={() => setDeleteId(null)}
         />
       )}
-    </div>
+    </UserLayout>
   );
 };
 

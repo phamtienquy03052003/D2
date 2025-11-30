@@ -1,13 +1,16 @@
-// CommentSection.tsx
 import { useState, useEffect, useRef } from "react";
 import { commentService } from "../../services/commentService";
 import { useAuth, socket } from "../../context/AuthContext";
 import ConfirmModal from "./ConfirmModal";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Crown, ArrowUp, ArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { Comment } from "../../types/Comment";
 import { getUserAvatarUrl } from "../../utils/userUtils";
 import { isCommentByPostAuthor } from "../../utils/commentUtils";
+import LoadingSpinner from "../common/LoadingSpinner";
+import { toast } from "react-hot-toast";
+import LevelTag from "./LevelTag";
+import NameTag from "./NameTag";
 
 export default function CommentSection({
   postId,
@@ -29,6 +32,8 @@ export default function CommentSection({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'best' | 'newest'>('best');
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -45,8 +50,13 @@ export default function CommentSection({
   }, []);
 
   const loadComments = async () => {
-    const data = await commentService.getByPost(postId);
-    setComments(data);
+    try {
+      setLoading(true);
+      const data = await commentService.getByPost(postId, filter);
+      setComments(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -102,17 +112,27 @@ export default function CommentSection({
       socket.off("updateReaction");
       socket.off("updateComment");
     };
-  }, [postId]);
+  }, [postId, filter]);
 
   const handleAddComment = async (parentComment?: string, content?: string) => {
     const text = content || (parentComment ? replyContent : newComment);
     if (!text.trim()) return;
-    await commentService.create(postId, { content: text, parentComment });
-    setNewComment("");
-    setReplyContent("");
-    setReplyingTo(null);
-    setReplyTarget(null);
-    setReplyParentId(null);
+    try {
+      const res = await commentService.create(postId, { content: text, parentComment });
+      if ((res as any).restricted) {
+        toast.error((res as any).message || "Bạn đang bị hạn chế bình luận.");
+        return;
+      }
+      setNewComment("");
+      setReplyContent("");
+      setReplyingTo(null);
+      setReplyTarget(null);
+      setReplyParentId(null);
+    } catch (error: any) {
+      console.error("Failed to add comment:", error);
+      const errorMessage = error.response?.data?.message || "Không thể gửi bình luận!";
+      toast.error(errorMessage);
+    }
   };
 
   const handleDeleteComment = (commentId: string) => {
@@ -171,40 +191,34 @@ export default function CommentSection({
     const isEditing = editingCommentId === comment._id;
     const isPostAuthor = isCommentByPostAuthor(comment, postAuthorId);
 
-    const avatarUrl = getUserAvatarUrl(comment.author) || undefined;
-
     return (
       <div key={comment._id} className="mt-4 flex">
         {depth > 0 && <div className="w-0.5 bg-gray-300 mr-3 ml-3 rounded-full"></div>}
         <div className="flex-1">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={comment.author.name}
-                  className="w-8 h-8 rounded-full object-cover cursor-pointer"
-                  onClick={() => handleUserClick(comment.author._id)}
-                />
-              ) : (
-                <div
-                  className="w-8 h-8 rounded-full bg-blue-500 flex items-center cursor-pointer justify-center text-sm font-semibold text-white"
-                  onClick={() => handleUserClick(comment.author._id)}
-                >
-                  {(comment.author?.name || comment.author?.email || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>
+              <img
+                src={getUserAvatarUrl(comment.author)}
+                alt={comment.author.name}
+                className="w-8 h-8 rounded-full object-cover cursor-pointer"
+                onClick={() => handleUserClick(comment.author._id)}
+              />
+              <div className="flex items-center flex-wrap gap-1">
                 <span
                   className="font-semibold text-gray-900 hover:text-orange-300 cursor-pointer text-sm"
                   onClick={() => handleUserClick(comment.author._id)}
                 >
                   {comment.author?.name || comment.author?.email || "Người dùng"}
                 </span>
+                <LevelTag level={comment.author?.level} />
+                <NameTag tagId={comment.author?.selectedNameTag} size="sm" />
                 {isPostAuthor && (
-                  <span className="ml-1 text-xs text-white bg-orange-400 rounded p-0.5">Tác giả</span>
+                  <span className="text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 rounded px-1.5 py-0.5 flex items-center gap-1 shadow-sm">
+                    <Crown size={10} className="fill-current" />
+                    Tác giả
+                  </span>
                 )}
-                <span className="text-gray-400 text-xs ml-1">• {timeAgo(comment.createdAt)}</span>
+                <span className="text-gray-400 text-xs">• {timeAgo(comment.createdAt)}</span>
               </div>
             </div>
 
@@ -248,13 +262,15 @@ export default function CommentSection({
           </div>
 
           {isEditing ? (
-            <div className="mt-2">
-              <textarea
-                className="border rounded-md w-full p-2 text-sm"
-                rows={2}
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-              />
+            <div className="mt-2 relative">
+              <div className="">
+                <textarea
+                  className="border rounded-md w-full p-2 text-sm pr-10"
+                  rows={2}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                />
+              </div>
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => handleEditComment(comment._id)}
@@ -278,18 +294,32 @@ export default function CommentSection({
           )}
 
           <div className="flex items-center gap-5 mt-2 text-xs text-gray-600">
-            <button
-              onClick={() => handleReact(comment._id, "like")}
-              className={comment.likes?.includes(user?._id || "") ? "text-blue-600" : "text-gray-600"}
-            >
-              Thích ({comment.likes?.length || 0})
-            </button>
-            <button
-              onClick={() => handleReact(comment._id, "dislike")}
-              className={comment.dislikes?.includes(user?._id || "") ? "text-red-600" : "text-gray-600"}
-            >
-              Không thích ({comment.dislikes?.length || 0})
-            </button>
+            <div className={`flex items-center rounded-full px-2 py-1 transition-all ${comment.likes?.includes(user?._id || "")
+              ? "bg-orange-100"
+              : comment.dislikes?.includes(user?._id || "")
+                ? "bg-blue-100"
+                : "bg-gray-100"
+              }`}>
+              <button
+                onClick={() => handleReact(comment._id, "like")}
+                className={`p-1 rounded-full ${comment.likes?.includes(user?._id || "") ? "text-orange-500" : "text-gray-600"
+                  } hover:bg-orange-200 transition-colors`}
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
+
+              <span className="text-xs font-bold px-1.5 text-gray-700 min-w-[20px] text-center">
+                {(comment.likes?.length || 0) - (comment.dislikes?.length || 0)}
+              </span>
+
+              <button
+                onClick={() => handleReact(comment._id, "dislike")}
+                className={`p-1 rounded-full ${comment.dislikes?.includes(user?._id || "") ? "text-blue-600" : "text-gray-600"
+                  } hover:bg-blue-200 transition-colors`}
+              >
+                <ArrowDown className="w-4 h-4" />
+              </button>
+            </div>
             <button
               onClick={() => handleReplyClick(comment, depth, parentId)}
               className="text-gray-600 hover:text-gray-900"
@@ -299,14 +329,15 @@ export default function CommentSection({
           </div>
 
           {replyingTo === comment._id && (
-            <div className="mt-3 ml-10">
+            <div className="mt-3 ml-10 relative">
               <textarea
-                className="border rounded-md w-full p-2 text-sm"
+                className="border rounded-md w-full p-2 text-sm pr-10"
                 rows={2}
                 placeholder={`Trả lời @${replyTarget?.name || ""}...`}
                 value={replyContent}
                 onChange={(e) => setReplyContent(e.target.value)}
               />
+
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={() => {
@@ -348,25 +379,20 @@ export default function CommentSection({
     <div className="max-w-3xl mx-auto">
       {user && (
         <div className="mb-6 flex gap-3">
-          {getUserAvatarUrl(user) ? (
-            <img
-              src={getUserAvatarUrl(user)!}
-              alt={user.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
-              {(user.name || user.email || "U").charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div className="flex-1">
+          <img
+            src={getUserAvatarUrl(user)!}
+            alt={user.name}
+            className="w-10 h-10 rounded-full object-cover"
+          />
+          <div className="flex-1 relative">
             <textarea
-              className="border rounded-md w-full p-3 text-sm resize-none"
+              className="border rounded-md w-full p-3 text-sm resize-none pr-10"
               rows={3}
               placeholder="Viết bình luận của bạn..."
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
             />
+
             <button
               onClick={() => handleAddComment()}
               className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-1.5 rounded-md text-sm mt-2 transition disabled:bg-gray-300"
@@ -378,7 +404,27 @@ export default function CommentSection({
         </div>
       )}
 
-      {comments.length === 0 ? (
+      {comments.length > 0 && (
+        <div className="flex justify-end mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Sắp xếp theo:</span>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as 'best' | 'newest')}
+              className="border rounded-md p-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-orange-500 bg-white"
+            >
+              <option value="best">Tốt nhất</option>
+              <option value="newest">Mới nhất</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <LoadingSpinner />
+        </div>
+      ) : comments.length === 0 ? (
         <div className="text-center py-10 text-gray-500">Chưa có bình luận nào.</div>
       ) : (
         <div>{comments.map((c) => renderComment(c))}</div>

@@ -17,7 +17,7 @@ const EditCommunityDescriptionModal: React.FC<EditCommunityDescriptionModalProps
 
   const handleSubmit = async () => {
     if (newDescription.length > 300)
-      return toast.success("Đăng nhập Google thành công!");toast.error("Mô tả không được vượt quá 300 ký tự!");
+      return toast.error("Mô tả không được vượt quá 300 ký tự!");
     setLoading(true);
     await onSave(newDescription);
     setLoading(false);
@@ -31,11 +31,10 @@ const EditCommunityDescriptionModal: React.FC<EditCommunityDescriptionModalProps
           value={newDescription}
           onChange={(e) => setNewDescription(e.target.value)}
           rows={4}
-          className={`w-full border rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 ${
-            newDescription.length > 300
+          className={`w-full border rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 ${newDescription.length > 300
               ? "border-red-400 focus:ring-red-500"
               : "focus:ring-blue-500"
-          }`}
+            }`}
           placeholder="Nhập mô tả mới..."
         />
         {newDescription.length > 300 && (
@@ -53,9 +52,8 @@ const EditCommunityDescriptionModal: React.FC<EditCommunityDescriptionModalProps
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className={`px-4 py-2 rounded-lg text-white ${
-              loading ? "bg-gray-400" : "bg-orange-500 hover:bg-orange-600"
-            }`}
+            className={`px-4 py-2 rounded-lg text-white ${loading ? "bg-gray-400" : "bg-orange-500 hover:bg-orange-600"
+              }`}
           >
             {loading ? "Đang lưu..." : "Lưu"}
           </button>

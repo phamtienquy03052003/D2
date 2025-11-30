@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Search } from "lucide-react";
 import type { UserType } from "../../types/chat";
 import { getUserAvatarUrl } from "../../utils/userUtils";
 import { userService } from "../../services/userService";
@@ -39,29 +40,38 @@ const NewConversationSearch: React.FC<Props> = ({ onStarted }) => {
   };
 
   return (
-    <div className="p-2 border-b">
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nhập tên người dùng để bắt đầu cuộc trò chuyện" className="w-full border p-2 rounded" />
-      <div className="max-h-40 overflow-y-auto">
-        {results.map((u) => (
-          <div key={u._id} className="p-2 flex items-center justify-between hover:bg-gray-100 cursor-pointer" onClick={() => startChat(u)}>
-            <div className="flex items-center gap-2">
-              {u.avatar ? (
+    <div className="relative">
+      <div className="flex items-center bg-gray-100 rounded-lg px-3 py-2 border border-transparent focus-within:border-blue-500 focus-within:bg-white transition-all">
+        <Search size={18} className="text-gray-500 mr-2" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm kiếm người dùng..."
+          className="bg-transparent outline-none flex-1 text-sm text-gray-800 placeholder-gray-500"
+        />
+      </div>
+
+      {results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto">
+          {results.map((u) => (
+            <div
+              key={u._id}
+              className="p-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none transition-colors"
+              onClick={() => startChat(u)}
+            >
+              <div className="flex items-center gap-3">
                 <img
                   src={getUserAvatarUrl(u)}
                   alt="Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-blue-500 object-cover"
+                  className="w-10 h-10 rounded-full border border-gray-200 object-cover"
                 />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-sx font-bold">
-                  {u.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <div>{u.name}</div>
+                <div className="font-medium text-gray-800">{u.name}</div>
+              </div>
+              <div className="text-xs text-blue-500 font-medium bg-blue-50 px-2 py-1 rounded-full">Nhắn tin</div>
             </div>
-            <div>Nhắn</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

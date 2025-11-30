@@ -69,6 +69,11 @@ export const getConversationsForMods = async (req, res) => {
     const community = await Community.findById(communityId);
     if (!community) return res.status(404).json({ message: "Community not found" });
 
+    // SECURITY FIX: Only creator can view modmail
+    if (community.creator.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
     // query conversations, populate starter + assignee an toàn
     const convs = await ModConversation.find({ community: communityId })
       .sort({ updatedAt: -1 })
@@ -93,12 +98,25 @@ export const getMessages = async (req, res) => {
 
     if (!conv) return res.status(404).json({ message: "Conversation not found" });
 
+    // Check if community exists (in case it was deleted)
+    if (!conv.community) {
+      return res.status(404).json({ message: "Community associated with this conversation not found" });
+    }
+
     const isStarter = conv.starter.toString() === req.user.id;
 
+    // Re-fetch community to be sure we have the latest data (though populate gave us some)
+    // Actually, since we populated 'community', conv.community IS the community document (if using Mongoose correctly).
+    // However, the original code fetched it again using Community.findById(conv.community._id).
+    // Let's stick to the original logic but add safety.
+
     const community = await Community.findById(conv.community._id);
-    const isMod =
-      community.creator.toString() === req.user.id ||
-      community.moderators.includes(req.user.id);
+
+    if (!community) {
+      return res.status(404).json({ message: "Community not found" });
+    }
+
+    const isMod = community.creator.toString() === req.user.id;
 
     if (!isStarter && !isMod)
       return res.status(403).json({ message: "You cannot view this conversation" });
@@ -115,6 +133,7 @@ export const getMessages = async (req, res) => {
 
     return res.json(messages);
   } catch (err) {
+    console.error("Error in getMessages:", err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -137,8 +156,7 @@ export const sendMessage = async (req, res) => {
 
     const community = await Community.findById(conv.community._id);
     const isMod =
-      community.creator.toString() === userId ||
-      community.moderators.includes(userId);
+      community.creator.toString() === userId;
 
     if (!isStarter && !isMod)
       return res.status(403).json({ message: "Not allowed" });

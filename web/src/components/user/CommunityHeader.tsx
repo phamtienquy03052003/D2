@@ -1,17 +1,21 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MoreHorizontal, Bell, BellOff } from "lucide-react";
+import { MoreHorizontal, Bell, BellOff, Plus, UserCheck, Trash2, Flag } from "lucide-react";
 import { getCommunityAvatarUrl } from "../../utils/communityUtils";
+
+import ReportCommunityModal from "./ReportCommunityModal";
+import CommunityMembersModal from "./CommunityMembersModal";
 
 interface CommunityHeaderProps {
   community: any;
   isCreator: boolean;
+  isModerator: boolean;
   isMember: boolean;
   isPending: boolean;
   loading: boolean;
   isNotificationEnabled?: boolean;
   onJoinLeave: () => void;
-  onManageClick: () => void;
+  onModToolClick: () => void;
   onDeleteClick: () => void;
   onToggleNotification?: () => void;
 }
@@ -19,16 +23,19 @@ interface CommunityHeaderProps {
 const CommunityHeader: React.FC<CommunityHeaderProps> = ({
   community,
   isCreator,
+  isModerator,
   isMember,
   isPending,
   loading,
   isNotificationEnabled = false,
   onJoinLeave,
-  onManageClick,
+  onModToolClick,
   onDeleteClick,
   onToggleNotification,
 }) => {
-  const [showMenu, setShowMenu] = React.useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
@@ -47,17 +54,11 @@ const CommunityHeader: React.FC<CommunityHeaderProps> = ({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="relative group">
-            {community.avatar ? (
-              <img
-                src={getCommunityAvatarUrl(community)}
-                alt={community.name}
-                className="w-14 h-14 rounded-full object-cover border"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold border text-lg">
-                {community.name?.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <img
+              src={getCommunityAvatarUrl(community)}
+              alt={community.name}
+              className="w-20 h-20 rounded-full object-cover border"
+            />
           </div>
 
           <div>
@@ -67,11 +68,19 @@ const CommunityHeader: React.FC<CommunityHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/tao-bai-viet?communityId=${community._id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <Plus size={20} />
+            Tạo bài đăng
+          </button>
+
           {(isMember || isCreator) && onToggleNotification && (
             <button
               onClick={onToggleNotification}
-              className="p-2 rounded-full hover:bg-gray-100 text-gray-600"
+              className="p-2 rounded-full border border-gray-300 hover:bg-gray-50 text-gray-600"
               title={isNotificationEnabled ? "Tắt thông báo" : "Bật thông báo"}
             >
               {isNotificationEnabled ? (
@@ -82,60 +91,106 @@ const CommunityHeader: React.FC<CommunityHeaderProps> = ({
             </button>
           )}
 
-          {isCreator ? (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="bg-gray-200 p-2 rounded-full hover:bg-gray-300"
-              >
-                <MoreHorizontal size={20} />
-              </button>
+          {(isCreator || isModerator) && (
+            <button
+              onClick={onModToolClick}
+              className="px-4 py-2 rounded-full bg-blue-700 text-white font-semibold hover:bg-blue-800"
+            >
+              Công cụ quản lý
+            </button>
+          )}
 
-              {showMenu && (
-                <div className="absolute right-0 mt-2 w-35 bg-white border rounded-lg shadow-md z-10">
-                  <button
-                    onClick={() => {
-                      setShowMenu(false);
-                      onManageClick();
-                    }}
-                    className="font-bold block w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
-                  >
-                    Công cụ quản lý
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowMenu(false);
-                      onDeleteClick();
-                    }}
-                    className="font-bold block w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100"
-                  >
-                    Xóa cộng đồng
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
+          {!isCreator && !isModerator && (
             <button
               onClick={onJoinLeave}
               disabled={loading}
-              className={`px-5 py-2 rounded-full text-sm font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 ${loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`px-5 py-2 rounded-full text-sm font-semibold ${isMember
+                ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                : "bg-blue-700 text-white hover:bg-blue-800"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {loading
                 ? "..."
                 : isPending
                   ? "Hủy yêu cầu"
                   : isMember
-                    ? "Rời"
+                    ? "Đã tham gia"
                     : "Tham gia"}
             </button>
           )}
+
+          {/* Menu dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <MoreHorizontal size={20} className="text-gray-600" />
+            </button>
+
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                {(isCreator || isModerator) ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowMembersModal(true);
+                        setShowMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <UserCheck size={16} />
+                      Quản lý thành viên
+                    </button>
+                    {isCreator && (
+                      <button
+                        onClick={() => {
+                          onDeleteClick();
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <Trash2 size={16} />
+                        Xóa cộng đồng
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  isMember && (
+                    <button
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setShowMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <Flag size={16} />
+                      Báo cáo cộng đồng
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {showReportModal && (
+        <ReportCommunityModal
+          communityId={community._id}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
+
+      {showMembersModal && (
+        <CommunityMembersModal
+          community={community}
+          onClose={() => setShowMembersModal(false)}
+          onUpdate={() => window.dispatchEvent(new Event("communityUpdated"))}
+        />
+      )}
     </div>
   );
 };
 
 export default CommunityHeader;
-

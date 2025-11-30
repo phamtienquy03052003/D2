@@ -3,6 +3,8 @@ export interface Author {
     name?: string;
     email?: string;
     avatar?: string;
+    level?: number;
+    selectedNameTag?: string;
 }
 
 export interface CommunityInfo {
@@ -28,7 +30,9 @@ export interface Post {
     status: "active" | "pending" | "removed" | "rejected";
     approvedAt?: string | null;
     isEdited?: boolean;
+    commentCount?: number;
 
     removedBy?: Author | null;
     removedAt?: string | null;
+    sharedPost?: Post | null;
 }

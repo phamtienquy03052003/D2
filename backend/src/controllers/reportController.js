@@ -2,6 +2,7 @@ import Report from "../models/Report.js";
 import Community from "../models/Community.js";
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
+import Notification from "../models/Notification.js";
 import mongoose from "mongoose";
 
 /* ======================================================================
@@ -23,7 +24,10 @@ export const checkTargetOwner = async (userId, targetId, targetType) => {
   const community = await Community.findById(target.community);
   if (!community) return { ok: false, message: "Community not found" };
 
-  if (community.creator.toString() !== userId.toString()) {
+  const isCreator = community.creator.toString() === userId.toString();
+  const isMod = community.moderators && community.moderators.some(m => m.toString() === userId.toString());
+
+  if (!isCreator && !isMod) {
     return { ok: false, message: "Access denied" };
   }
 
@@ -79,11 +83,14 @@ export const ownerGroupedReportsMulti = async (req, res) => {
     // Check community ownership
     const communities = await Community.find({
       _id: { $in: communityIds },
-      creator: userId,
+      $or: [
+        { creator: userId },
+        { moderators: userId }
+      ]
     });
 
     if (communities.length === 0) {
-      return res.status(403).json({ message: "You do not own these communities" });
+      return res.status(403).json({ message: "You do not own or moderate these communities" });
     }
 
     const validCommunityIds = communities.map((c) => c._id);
@@ -125,6 +132,8 @@ export const ownerGroupedReportsMulti = async (req, res) => {
           targetType: { $first: "$targetType" },
           reportCount: { $sum: 1 },
           reports: { $push: "$$ROOT" },
+          postData: { $first: "$postData" },
+          commentData: { $first: "$commentData" },
         },
       },
       { $sort: { reportCount: -1 } },
@@ -146,7 +155,7 @@ export const ownerReportsDetail = async (req, res) => {
     const { targetId } = req.params;
 
     const reports = await Report.find({ targetId })
-      .populate("reporter", "username avatar")
+      .populate("reporter", "name avatar")
       .lean();
 
     if (!reports || reports.length === 0) {
@@ -165,11 +174,11 @@ export const ownerReportsDetail = async (req, res) => {
 
     if (first.targetType === "Post") {
       targetData = await Post.findById(targetId)
-        .populate("author", "username avatar")
+        .populate("author", "name avatar")
         .lean();
     } else {
       targetData = await Comment.findById(targetId)
-        .populate("author", "username avatar")
+        .populate("author", "name avatar")
         .lean();
     }
 
@@ -190,60 +199,35 @@ export const ownerReportsDetail = async (req, res) => {
 
 
 /* ======================================================================
-   OWNER: Ẩn bài viết / bình luận
+   OWNER: Xóa bài viết / bình luận + report
 ====================================================================== */
-export const ownerHideTarget = async (req, res) => {
-  try {
-    const { targetType, targetId } = req.params;
-
-    const check = await checkTargetOwner(req.user.id, targetId, targetType);
-    if (!check.ok) return res.status(403).json({ message: check.message });
-
-    const model = targetType === "Post" ? Post : Comment;
-
-    const updated = await model.findByIdAndUpdate(
-      targetId,
-      { hidden: true },
-      { new: true }
-    );
-
-    res.status(200).json({
-      message: `${targetType} hidden successfully`,
-      updated,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
-  }
-};
-
-
 /* ======================================================================
    OWNER: Xóa bài viết / bình luận + report
 ====================================================================== */
 export const ownerDeleteTarget = async (req, res) => {
-  try {
-    const { targetType, targetId } = req.params;
+  try {
+    const { targetType, targetId } = req.params;
     const removerId = req.user.id; // Lấy ID của Mod/Owner đang thực hiện
     const removalTime = new Date(); // Lấy thời gian xóa
 
-    // 1. Kiểm tra quyền sở hữu (Giữ nguyên)
-    const check = await checkTargetOwner(removerId, targetId, targetType);
-    if (!check.ok) return res.status(403).json({ message: check.message });
+    // 1. Kiểm tra quyền sở hữu (Giữ nguyên)
+    const check = await checkTargetOwner(removerId, targetId, targetType);
+    if (!check.ok) return res.status(403).json({ message: check.message });
 
-    // 2. Lấy model và cập nhật target chính
-    const model = targetType === "Post" ? Post : Comment;
-    const target = await model.findById(targetId);
-    
-    if (!target)
-      return res.status(404).json({ message: `${targetType} not found` });
-    if (target.status === "removed")
-      return res.status(410).json({ message: `${targetType} already removed` });
+    // 2. Lấy model và cập nhật target chính
+    const model = targetType === "Post" ? Post : Comment;
+    const target = await model.findById(targetId);
 
-    // --- CẬP NHẬT BỊ THIẾU ---
-    target.status = "removed";
-    target.removedBy = removerId; // <--- Thêm dòng này
-    target.removedAt = removalTime; // <--- Thêm dòng này
-    await target.save();
+    if (!target)
+      return res.status(404).json({ message: `${targetType} not found` });
+    if (target.status === "removed")
+      return res.status(410).json({ message: `${targetType} already removed` });
+
+    // --- CẬP NHẬT BỊ THIẾU ---
+    target.status = "removed";
+    target.removedBy = removerId; // <--- Thêm dòng này
+    target.removedAt = removalTime; // <--- Thêm dòng này
+    await target.save();
     // -------------------------
 
     // 3. Dữ liệu để cập nhật đồng bộ cho các mục con
@@ -253,25 +237,43 @@ export const ownerDeleteTarget = async (req, res) => {
       removedAt: removalTime
     };
 
-    // 4. Cập nhật đồng bộ các mục con (Cascade remove)
-    if (targetType === "Post") {
+    // 4. Cập nhật đồng bộ các mục con (Cascade remove)
+    if (targetType === "Post") {
       // Xóa các comment thuộc bài viết
-      await Comment.updateMany({ post: targetId }, cascadeUpdateData);
-    } else {
+      await Comment.updateMany({ post: targetId }, cascadeUpdateData);
+    } else {
       // Xóa các reply thuộc bình luận
-      await Comment.updateMany({ parentComment: targetId }, cascadeUpdateData);
-    }
+      await Comment.updateMany({ parentComment: targetId }, cascadeUpdateData);
+    }
 
-    // 5. Xóa các report liên quan (Giữ nguyên)
-    await Report.deleteMany({ targetId });
+    // 5. Xử lý báo cáo & Thông báo
+    // Lấy danh sách người báo cáo để gửi thông báo
+    const reports = await Report.find({ targetId });
+    const reporterIds = [...new Set(reports.map((r) => r.reporter.toString()))];
 
-    res.status(200).json({
-      message: `${targetType} deleted successfully (by Mod)`,
-    });
-  } catch (error) {
-    console.error("Lỗi ownerDeleteTarget:", error)
-    res.status(500).json({ message: "Server Error", error: error.message });
-  }
+    // Cập nhật trạng thái báo cáo thành "Reviewed" thay vì xóa
+    await Report.updateMany({ targetId }, { status: "Reviewed" });
+
+    // Gửi thông báo cho từng người báo cáo
+    const notificationPromises = reporterIds.map((uid) =>
+      Notification.create({
+        user: uid,
+        sender: removerId, // Người xóa (Mod/Owner)
+        type: "report_resolved",
+        message: `Nội dung bạn báo cáo (${targetType}) đã được xử lý và xóa bỏ.`,
+        community: check.community._id, // Link tới cộng đồng
+        // Có thể thêm post/comment id nếu muốn link, nhưng nó đã bị xóa/ẩn nên có thể chỉ cần text
+      })
+    );
+    await Promise.all(notificationPromises);
+
+    res.status(200).json({
+      message: `${targetType} deleted successfully (by Mod). Reports updated and reporters notified.`,
+    });
+  } catch (error) {
+    console.error("Lỗi ownerDeleteTarget:", error)
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
 };
 
 

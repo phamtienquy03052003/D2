@@ -4,7 +4,6 @@ import {
 
   ownerGroupedReportsMulti,
   ownerReportsDetail,
-  ownerHideTarget,
   ownerDeleteTarget,
 
   adminGroupedReports,
@@ -22,7 +21,6 @@ router.post("/", verifyToken, createReport);
 /* OWNER – NEW VERSION */
 router.get("/owner/grouped", verifyToken, ownerGroupedReportsMulti);
 router.get("/owner/target/:targetId", verifyToken, ownerReportsDetail);
-router.patch("/owner/hide/:targetType/:targetId", verifyToken, ownerHideTarget);
 router.delete("/owner/delete/:targetType/:targetId", verifyToken, ownerDeleteTarget);
 
 /* ADMIN (giữ nguyên) */

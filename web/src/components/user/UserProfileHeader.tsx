@@ -1,42 +1,39 @@
 import React from "react";
-import { Pencil } from "lucide-react";
-import { getUserAvatarUrl, getUserDisplayName, isAdmin } from "../../utils/userUtils";
+import { getUserDisplayName, isAdmin, getRequiredXP, getUserAvatarUrl } from "../../utils/userUtils";
 import type { User } from "../../types/User";
+import LevelTag from "./LevelTag";
+import NameTag from "./NameTag";
 
 interface UserProfileHeaderProps {
   user: User;
   previewAvatar?: string | null;
   onAvatarClick: () => void;
   onNameClick: () => void;
+  isOwnProfile?: boolean;
+  showXPBar?: boolean;
+  onOpenHistory?: () => void;
 }
 
 const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
   user,
   previewAvatar,
   onAvatarClick,
-  onNameClick,
+  showXPBar,
+  onOpenHistory,
 }) => {
   return (
     <div className="flex items-center space-x-5 mb-6">
       <div
-        className="relative w-20 h-20 group cursor-pointer"
+        className="relative w-20 h-20 group"
         onClick={onAvatarClick}
       >
-        {previewAvatar ? (
+        {previewAvatar || user ? (
           <img
-            src={previewAvatar}
+            src={previewAvatar || getUserAvatarUrl(user)}
             alt="Avatar"
             className="w-20 h-20 rounded-full border-2 border-blue-500 object-cover"
           />
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold">
-            {getUserDisplayName(user).charAt(0).toUpperCase()}
-          </div>
-        )}
-
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-full transition-opacity">
-          <Pencil className="text-white" size={20} />
-        </div>
+        ) : null}
       </div>
 
       <div>
@@ -44,25 +41,44 @@ const UserProfileHeader: React.FC<UserProfileHeaderProps> = ({
           <h2 className="text-2xl font-bold text-gray-800">
             {getUserDisplayName(user)}
           </h2>
-          <button
-            className="p-1 rounded-full hover:bg-gray-200 transition"
-            onClick={onNameClick}
-          >
-            <Pencil size={18} />
-          </button>
         </div>
 
         <p className="text-gray-600">{user.email}</p>
 
-        <span
-          className={`inline-block text-xs font-semibold px-2 py-1 rounded mt-2 ${
-            isAdmin(user)
-              ? "bg-red-100 text-red-600"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {isAdmin(user) ? "Quản trị viên" : "Thành viên"}
-        </span>
+        <div className="flex gap-2 mt-2 items-center">
+          <LevelTag level={user.level} />
+          <NameTag tagId={user.selectedNameTag} size="md" />
+          {isAdmin(user) && (
+            <span className="inline-block text-xs font-semibold px-2 py-1 rounded bg-red-100 text-red-600">
+              Quản trị viên
+            </span>
+          )}
+        </div>
+
+        {/* XP Bar */}
+        {showXPBar && (
+          <div className="mt-2 w-full max-w-[200px]">
+            <div className="flex justify-between items-center mb-1">
+              <div className="text-[10px] text-gray-500">
+                {user.experience || 0} / {getRequiredXP(user.level || 0)} XP
+              </div>
+              {onOpenHistory && (
+                <button
+                  onClick={onOpenHistory}
+                  className="text-[10px] text-blue-600 hover:underline"
+                >
+                  Lịch sử
+                </button>
+              )}
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(((user.experience || 0) / getRequiredXP(user.level || 0)) * 100, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

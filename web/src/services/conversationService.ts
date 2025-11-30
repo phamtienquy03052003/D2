@@ -22,4 +22,11 @@ export const conversationService = {
     const res = await conversationApi.updateGroupMembers(conversationId, addMembers, removeMembers);
     return res.data as ConversationType;
   },
+  async accept(conversationId: string): Promise<ConversationType> {
+    const res = await conversationApi.accept(conversationId);
+    return res.data as ConversationType;
+  },
+  async reject(conversationId: string): Promise<void> {
+    await conversationApi.reject(conversationId);
+  },
 };

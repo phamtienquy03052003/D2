@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
-import RightSidebar from "../../components/user/RightSidebar";
 import CreateCommunityModal from "../../components/user/CreateCommunityModal";
 import CommunityListItem from "../../components/user/CommunityListItem";
 import SearchInput from "../../components/user/SearchInput";
@@ -86,10 +85,10 @@ const CommunitiesPage: React.FC = () => {
           prev.map((c) =>
             c._id === community._id
               ? {
-                  ...c,
-                  isMember: !c.isApproval,
-                  isPending: c.isApproval,
-                }
+                ...c,
+                isMember: !c.isApproval,
+                isPending: c.isApproval,
+              }
               : c
           )
         );
@@ -117,12 +116,12 @@ const CommunitiesPage: React.FC = () => {
           isOpen={isSidebarOpen}
           onClose={closeSidebar}
           activeItem="communities"
-          onItemClick={() => {}}
+          onItemClick={() => { }}
         />
 
-        <div className="flex-1 max-w-5xl mx-auto w-full px-4 py-5 lg:ml-[calc(128px+16rem)]">
+        <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 lg:ml-[calc(64px+16rem)]">
           <div className="flex gap-6">
-            <div className="flex-1 max-w-2xl">
+            <div className="flex-1 max-w-6xl">
               <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <div className="flex justify-between items-center mb-5">
                   <h1 className="text-xl font-bold text-gray-800">
@@ -159,8 +158,6 @@ const CommunitiesPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <RightSidebar />
           </div>
         </div>
       </div>

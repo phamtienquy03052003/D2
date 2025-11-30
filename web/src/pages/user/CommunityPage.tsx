@@ -4,8 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { communityService } from "../../services/communityService";
 import { postService } from "../../services/postService";
 import { useAuth } from "../../context/AuthContext";
-import Header from "../../components/user/Header";
-import Sidebar from "../../components/user/Sidebar";
+import UserLayout from "../../UserLayout";
 import PostCard from "../../components/user/PostCard";
 import EditPostModal from "../../components/user/EditPostModal";
 import ConfirmModal from "../../components/user/ConfirmModal";
@@ -17,9 +16,11 @@ import {
   isCreator as checkIsCreator,
   isMember as checkIsMember,
   isPending as checkIsPending,
+  isModerator as checkIsModerator,
   getCommunityAvatarUrl,
 } from "../../utils/communityUtils";
 import { getAuthorAvatar, getAuthorName, getVoteCount, hasImage } from "../../utils/postUtils";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const CommunityPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,9 +31,10 @@ const CommunityPage: React.FC = () => {
   const [isMember, setIsMember] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
 
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -55,7 +57,8 @@ const CommunityPage: React.FC = () => {
       const uid = user._id;
       setIsCreator(checkIsCreator(data, uid));
       setIsPending(checkIsPending(data, uid));
-      setIsMember(checkIsMember(data, uid) || checkIsCreator(data, uid));
+      setIsModerator(checkIsModerator(data, uid));
+      setIsMember(checkIsMember(data, uid) || checkIsCreator(data, uid) || checkIsModerator(data, uid));
 
       // Check notification status
       if (data.notificationSubscribers && (data.notificationSubscribers as string[]).includes(uid)) {
@@ -67,6 +70,7 @@ const CommunityPage: React.FC = () => {
       setIsCreator(false);
       setIsPending(false);
       setIsMember(false);
+      setIsModerator(false);
       setIsNotificationEnabled(false);
     }
 
@@ -163,7 +167,6 @@ const CommunityPage: React.FC = () => {
       setDeleteId(null);
     }
   };
-
   const handleConfirmDeleteCommunity = async () => {
     if (!id) return;
     try {
@@ -176,88 +179,96 @@ const CommunityPage: React.FC = () => {
     }
   };
 
-  const formatNumber = (num: number) =>
-    num >= 1_000_000 ? (num / 1_000_000).toFixed(1) + "M" :
-      num >= 1_000 ? (num / 1_000).toFixed(1) + "k" : num.toString();
+  const handleUpdateCommunity = async (data: any) => {
+    if (!id) return;
+    try {
+      // 1. Handle Name/Description (Generic Update)
+      if (data.name !== undefined || data.description !== undefined) {
+        await communityService.update(id, data);
+      }
 
-  const timeAgo = (date: string) => {
-    const diff = (Date.now() - new Date(date).getTime()) / 1000;
-    if (diff < 60) return `${Math.floor(diff)}s trước`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m trước`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h trước`;
-    return `${Math.floor(diff / 86400)}d trước`;
+      // 2. Handle Privacy
+      if (data.isPrivate !== undefined && data.isPrivate !== community.isPrivate) {
+        await communityService.updatePrivacy(id, data.isPrivate);
+      }
+
+      // 3. Handle Member Approval
+      if (data.isApproval !== undefined && data.isApproval !== community.isApproval) {
+        await communityService.toggleApproval(id);
+      }
+
+      // 4. Handle Post Approval
+      if (data.postApprovalRequired !== undefined && data.postApprovalRequired !== community.postApprovalRequired) {
+        await communityService.togglePostApproval(id);
+      }
+
+      await fetchCommunity();
+      toast.success("Cập nhật cộng đồng thành công!");
+    } catch (err) {
+      toast.error("Lỗi cập nhật cộng đồng!");
+    }
   };
 
   if (!community)
     return (
-      <div className="flex justify-center items-center min-h-screen text-gray-500">
-        Đang tải...
-      </div>
+      <UserLayout activeMenuItem="communities">
+        <LoadingSpinner />
+      </UserLayout>
     );
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      <Header onToggleSidebar={() => setIsSidebarOpen(true)} />
-
-      <div className="flex flex-1">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-          activeItem="communities"
-          onItemClick={() => { }}
+    <UserLayout activeMenuItem="communities">
+      <div className="max-w-6xl mx-auto w-full px-4 py-6">
+        <CommunityHeader
+          community={community}
+          isCreator={isCreator}
+          isModerator={isModerator}
+          isMember={isMember}
+          isPending={isPending}
+          loading={loading}
+          isNotificationEnabled={isNotificationEnabled}
+          onJoinLeave={handleJoinLeave}
+          onModToolClick={() => navigate(`/quan-tri/noi-dung-cho-duyet`)}
+          onDeleteClick={() => setConfirmDeleteCommunity(true)}
+          onToggleNotification={handleToggleNotification}
         />
 
-        {/* MAIN CONTENT */}
-        <div className="flex-1 max-w-6xl mx-auto w-full px-4 lg:mr-15 py-6 lg:ml-[calc(128px+16rem)]">
-          <CommunityHeader
-            community={community}
-            isCreator={isCreator}
-            isMember={isMember}
-            isPending={isPending}
-            loading={loading}
-            isNotificationEnabled={isNotificationEnabled}
-            onJoinLeave={handleJoinLeave}
-            onManageClick={() => navigate(`/quan-ly-cong-dong`)}
-            onDeleteClick={() => setConfirmDeleteCommunity(true)}
-            onToggleNotification={handleToggleNotification}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              {community.isPrivate && !isMember ? (
-                <p className="text-gray-500 text-center py-6">
-                  Đây là cộng đồng riêng tư. Tham gia để xem bài viết.
-                </p>
-              ) : posts.length > 0 ? (
-                <div className="space-y-0">
-                  {posts.map((post, index) => (
-                    <React.Fragment key={post._id}>
-                      <PostCard
-                        post={post}
-                        onVote={handleVote}
-                        formatNumber={formatNumber}
-                        timeAgo={timeAgo}
-                        onEdit={setEditingPost}
-                        onDelete={setDeleteId}
-                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
-                      />
-                      {index < posts.length - 1 && (
-                        <div className="border-b border-gray-200 my-[5px]"></div>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-6">Chưa có bài viết nào trong cộng đồng này.</p>
-              )}
-            </div>
-
-            <CommunityInfoSidebar
-              community={community}
-              isMember={isMember}
-              formatNumber={formatNumber}
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {community.isPrivate && !isMember ? (
+              <p className="text-gray-500 text-center py-6">
+                Đây là cộng đồng riêng tư. Tham gia để xem bài viết.
+              </p>
+            ) : posts.length > 0 ? (
+              <div className="space-y-0">
+                {posts.map((post, index) => (
+                  <React.Fragment key={post._id}>
+                    <PostCard
+                      post={post}
+                      onVote={handleVote}
+                      onEdit={setEditingPost}
+                      onDelete={setDeleteId}
+                      onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                    />
+                    {index < posts.length - 1 && (
+                      <div className="border-b border-gray-200 my-[5px]"></div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-6">Chưa có bài viết nào trong cộng đồng này.</p>
+            )}
           </div>
+
+          <CommunityInfoSidebar
+            community={community}
+            isMember={isMember}
+            isCreator={isCreator}
+            isModerator={isModerator}
+
+            onUpdate={handleUpdateCommunity}
+          />
         </div>
       </div>
 
@@ -286,7 +297,7 @@ const CommunityPage: React.FC = () => {
           onCancel={() => setConfirmDeleteCommunity(false)}
         />
       )}
-    </div>
+    </UserLayout>
   );
 };
 

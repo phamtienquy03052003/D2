@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
   Shield,
   Inbox,
-  Ban,
   ChevronDown,
   ChevronUp,
   X,
@@ -31,13 +29,6 @@ interface ModMenuItem {
 
 const modMenuItems: ModMenuItem[] = [
   {
-    id: "manage-community",
-    label: "Chung",
-    icon: <LayoutDashboard className="w-5 h-5" />,
-    path: "/quan-ly-cong-dong",
-    requiresCommunityId: true,
-  },
-  {
     id: "mod-queue",
     label: "Nội dung chờ duyệt",
     icon: <Shield className="w-5 h-5" />,
@@ -48,19 +39,13 @@ const modMenuItems: ModMenuItem[] = [
     label: "Hộp thư quản trị",
     icon: <Inbox className="w-5 h-5" />,
     path: "/quan-tri/hop-thu-quan-tri",
-  },
-  {
-    id: "restricted-users",
-    label: "Người dùng bị hạn chế",
-    icon: <Ban className="w-5 h-5" />,
-    path: "/quan-tri/nguoi-dung-bi-han-che",
-  },
+  }
 ];
 
 const ModSidebar: React.FC<ModSidebarProps> = ({
   isOpen,
   onClose,
-  activeItem = "manage-community",
+  activeItem = "mod-queue",
   onItemClick,
   communityId,
 }) => {
@@ -84,7 +69,7 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
     const loadCommunities = async () => {
       setIsLoadingCommunities(true);
       try {
-        const created = await communityService.getMyCreatedCommunities();
+        const created = await communityService.getManagedCommunities();
         if (created?.length) {
           setResolvedCommunityId(created[0]._id);
           setHasModerationAccess(true);
@@ -172,7 +157,7 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
             className="w-full flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
           >
             <LogOut className="w-5 h-5" />
-            <span className="font-medium">Thoát quản trị</span>
+            <span className="font-medium">Thoát</span>
           </button>
 
           <div className="border-t pt-4">

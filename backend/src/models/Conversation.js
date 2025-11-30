@@ -12,6 +12,18 @@ const conversationSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    pendingMembers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    admins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",

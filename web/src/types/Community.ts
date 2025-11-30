@@ -11,10 +11,12 @@ export interface Community {
   | {
     _id: string;
     name?: string;
+    email?: string;
     avatar?: string;
   };
 
   members: string[] | User[];
+  moderators?: string[] | User[];
   pendingMembers?: string[] | User[];
   restrictedUsers?: string[] | User[];
   notificationSubscribers?: string[] | User[];

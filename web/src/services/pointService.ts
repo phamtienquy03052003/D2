@@ -10,7 +10,7 @@ export const pointService = {
     return res.data as TotalPointsResponse;
   },
 
-  async getHistory() {
+  async getXPHistory() {
     const res = await pointApi.getHistory();
     return res.data;
   },

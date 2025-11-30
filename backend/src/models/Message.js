@@ -22,6 +22,12 @@ const messageSchema = new mongoose.Schema(
       default: "text",
     },
     fileUrl: { type: String },
+    reactions: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        emoji: { type: String, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );
