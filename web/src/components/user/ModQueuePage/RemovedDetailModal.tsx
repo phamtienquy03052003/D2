@@ -1,10 +1,11 @@
 import React from "react";
+import { BASE_URL } from "../../../utils/userUtils";
 
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    target: any; 
+    target: any;
 }
 
 const RemovedDetailModal: React.FC<Props> = ({
@@ -73,7 +74,7 @@ const RemovedDetailModal: React.FC<Props> = ({
                             dangerouslySetInnerHTML={{ __html: target.content || "" }}
                         />
 
-                        {}
+                        { }
                         {target.video && (
                             <div className="mt-4">
                                 <video
@@ -81,19 +82,19 @@ const RemovedDetailModal: React.FC<Props> = ({
                                     className="w-full max-w-2xl rounded-lg"
                                     preload="metadata"
                                 >
-                                    <source src={`http://localhost:8000${target.video}`} type="video/mp4" />
+                                    <source src={`${BASE_URL}${target.video}`} type="video/mp4" />
                                     Trình duyệt của bạn không hỗ trợ video.
                                 </video>
                             </div>
                         )}
 
-                        {}
+                        { }
                         {((target.images && target.images.length > 0) || target.image) && (
                             <div className="mt-4 grid grid-cols-2 gap-2">
                                 {(target.images && target.images.length > 0 ? target.images : [target.image!]).map((img: string, idx: number) => (
                                     <img
                                         key={idx}
-                                        src={`http://localhost:8000${img}`}
+                                        src={`${BASE_URL}${img}`}
                                         alt={`Image ${idx + 1}`}
                                         className="rounded-lg w-full h-auto object-cover"
                                     />
@@ -101,7 +102,7 @@ const RemovedDetailModal: React.FC<Props> = ({
                             </div>
                         )}
 
-                        {}
+                        { }
                         {target.linkUrl && (
                             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <a

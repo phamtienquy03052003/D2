@@ -14,6 +14,7 @@ import NameTag from "../NameTag";
 import ReportCommentModal from "../ReportCommentModal";
 import UserAvatar from "../../common/UserAvatar";
 import UserName from "../../common/UserName";
+import { BASE_URL } from "../../../utils/userUtils";
 
 export default function CommentSection({
   postId,
@@ -69,7 +70,7 @@ export default function CommentSection({
       const data = await commentService.getByPost(postId, filter);
       setComments(data);
 
-      
+
       const commentIdsWithReplies = new Set<string>();
       const findCommentsWithReplies = (comments: Comment[]) => {
         comments.forEach(c => {
@@ -251,15 +252,15 @@ export default function CommentSection({
     const formData = new FormData();
     if (editContent.trim()) formData.append("content", editContent);
 
-    
+
     if (editImageFile) {
-      
+
       formData.append("image", editImageFile);
     } else if (editExistingImage) {
-      
+
       formData.append("existingImage", editExistingImage);
     } else {
-      
+
       formData.append("removeImage", "true");
     }
 
@@ -280,7 +281,7 @@ export default function CommentSection({
       }
       setEditImageFile(file);
       setEditImagePreview(URL.createObjectURL(file));
-      setEditExistingImage(null); 
+      setEditExistingImage(null);
     }
   };
 
@@ -301,7 +302,7 @@ export default function CommentSection({
   };
 
   const timeAgo = (date: string) => {
-    const diff = (Date.now() - new Date(date).getTime()) / 1000; 
+    const diff = (Date.now() - new Date(date).getTime()) / 1000;
     if (diff < 60) return `${Math.floor(diff)} giây trước`;
     if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
@@ -410,13 +411,13 @@ export default function CommentSection({
                 />
               </div>
 
-              {}
+              { }
               <div className="mt-2">
-                {}
+                { }
                 {editExistingImage && !editImagePreview && (
                   <div className="relative inline-block">
                     <img
-                      src={`http://localhost:8000${editExistingImage}`}
+                      src={`${BASE_URL}${editExistingImage}`}
                       alt="Current"
                       className="max-w-xs rounded-lg"
                     />
@@ -430,7 +431,7 @@ export default function CommentSection({
                   </div>
                 )}
 
-                {}
+                { }
                 {editImagePreview && (
                   <div className="relative inline-block">
                     <img
@@ -448,7 +449,7 @@ export default function CommentSection({
                   </div>
                 )}
 
-                {}
+                { }
                 {!editImagePreview && (
                   <label className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-cyan-500 dark:hover:text-cyan-400 cursor-pointer text-xs">
                     <ImageIcon size={16} />
@@ -490,10 +491,10 @@ export default function CommentSection({
               <p className="text-gray-800 dark:text-gray-200 text-sm mt-2 leading-relaxed">{comment.content}</p>
               {comment.image && (
                 <img
-                  src={`http://localhost:8000${comment.image}`}
+                  src={`${BASE_URL}${comment.image}`}
                   alt="Comment attachment"
                   className="mt-2 w-72 h-48 object-cover rounded-xl cursor-pointer border dark:border-gray-700 shadow-sm transition-transform hover:scale-[1.01]"
-                  onClick={() => window.open(`http://localhost:8000${comment.image}`, '_blank')}
+                  onClick={() => window.open(`${BASE_URL}${comment.image}`, '_blank')}
                 />
               )}
             </>

@@ -1,5 +1,6 @@
 import React from "react";
 import type { Post } from "../../../types/Post";
+import { BASE_URL } from "../../../utils/userUtils";
 
 interface PendingPostItemProps {
   post: Post;
@@ -42,7 +43,7 @@ const PendingPostItem: React.FC<PendingPostItemProps> = ({
         </div>
       )}
 
-      {}
+      { }
       {post.video && (
         <div className="mt-3">
           <video
@@ -50,19 +51,19 @@ const PendingPostItem: React.FC<PendingPostItemProps> = ({
             className="w-full max-w-2xl rounded-lg"
             preload="metadata"
           >
-            <source src={`http://localhost:8000${post.video}`} type="video/mp4" />
+            <source src={`${BASE_URL}${post.video}`} type="video/mp4" />
             Trình duyệt của bạn không hỗ trợ video.
           </video>
         </div>
       )}
 
-      {}
+      { }
       {((post.images && post.images.length > 0) || post.image) && (
         <div className="mt-3 grid grid-cols-2 gap-2">
           {(post.images && post.images.length > 0 ? post.images : [post.image!]).map((img, idx) => (
             <img
               key={idx}
-              src={`http://localhost:8000${img}`}
+              src={`${BASE_URL}${img}`}
               alt={`Post image ${idx + 1}`}
               className="rounded-lg w-full max-h-64 object-cover"
             />
@@ -70,7 +71,7 @@ const PendingPostItem: React.FC<PendingPostItemProps> = ({
         </div>
       )}
 
-      {}
+      { }
       {post.linkUrl && (
         <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <a

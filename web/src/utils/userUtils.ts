@@ -2,7 +2,7 @@
 import type { User } from "../types/User";
 import type { UserInfo } from "../types/Notification";
 
-export const BASE_URL = import.meta.env.BACKEND_URL || "http://localhost:8000";
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 
 export function getUserDisplayName(user: User): string {
@@ -77,18 +77,18 @@ export function getSocialLinkDisplayName(url: string): string {
     const urlObj = new URL(url);
     const path = urlObj.pathname;
 
-    
+
     const cleanPath = path.replace(/^\/|\/$/g, "");
 
     if (!cleanPath) return urlObj.hostname;
 
-    
+
     if (url.includes("youtube.com")) {
-      
+
       if (cleanPath.startsWith("channel/") || cleanPath.startsWith("user/")) {
         return cleanPath.split("/")[1];
       }
-      return cleanPath; 
+      return cleanPath;
     }
 
     if (url.includes("linkedin.com")) {
@@ -97,7 +97,7 @@ export function getSocialLinkDisplayName(url: string): string {
       }
     }
 
-    
+
     const parts = cleanPath.split("/");
     return parts[parts.length - 1] || urlObj.hostname;
   } catch (e) {
@@ -109,10 +109,10 @@ export function getSocialLinkDisplayName(url: string): string {
 export function getSocialLinkData(data: string | { url: string; displayName: string } | undefined | null) {
   if (!data) return null;
   if (typeof data === "string") {
-    
+
     return { url: data, displayName: getSocialLinkDisplayName(data) };
   }
-  
+
   if (!data.url) return null;
   return {
     url: data.url,

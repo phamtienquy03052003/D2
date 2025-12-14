@@ -6,6 +6,7 @@ import "quill/dist/quill.snow.css";
 import PostTypeTabs from "./CreatePostPage/PostTypeTabs";
 import { X, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import { getPostImageUrl } from "../../utils/postUtils";
+import { BASE_URL } from "../../utils/postUtils";
 
 interface EditPostModalProps {
   post: Post | null;
@@ -18,23 +19,23 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
   const [content, setContent] = useState(post?.content || "");
   const [linkUrl, setLinkUrl] = useState(post?.linkUrl || "");
 
-  
-  
+
+
   const [existingImages, setExistingImages] = useState<string[]>([]);
 
-  
+
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
-  
+
   const [existingVideo, setExistingVideo] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
-  
+
   const [activeTab, setActiveTab] = useState<"text" | "media" | "link" | "poll">("text");
 
-  
+
   const { quill, quillRef } = useQuill({
     theme: "snow",
     modules: {
@@ -47,14 +48,14 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
     },
   });
 
-  
+
   useEffect(() => {
     if (post) {
       setTitle(post.title);
       setContent(post.content || "");
       setLinkUrl(post.linkUrl || "");
 
-      
+
       let imgs: string[] = [];
       if (post.images && post.images.length > 0) {
         imgs = post.images.map(img => typeof img === 'string' ? img : getPostImageUrl(img));
@@ -63,24 +64,24 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
       }
       setExistingImages(imgs);
 
-      
+
       if (post.video) {
         setExistingVideo(post.video);
       }
 
-      
+
       if (imgs.length > 0 || post.video) setActiveTab("media");
       else if (post.linkUrl) setActiveTab("link");
       else setActiveTab("text");
 
-      
+
       if (quill && post.content) {
         quill.root.innerHTML = post.content;
       }
     }
   }, [post, quill]);
 
-  
+
   useEffect(() => {
     if (quill) {
       quill.on("text-change", () => {
@@ -89,7 +90,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
     }
   }, [quill]);
 
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
@@ -127,7 +128,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
       }
       setVideoFile(file);
       setVideoPreview(URL.createObjectURL(file));
-      setExistingVideo(null); 
+      setExistingVideo(null);
     }
   };
 
@@ -143,7 +144,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
     setExistingVideo(null);
   };
 
-  
+
   const handleSave = () => {
     if (!title.trim()) return toast.error("Tiêu đề không được để trống");
     if (title.length < 3 || title.length > 300) return toast.error("Tiêu đề từ 3-300 ký tự");
@@ -151,29 +152,29 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
     const formData = new FormData();
     formData.append("title", title);
 
-    
+
     formData.append("content", content || "");
 
-    
+
     formData.append("linkUrl", linkUrl || "");
 
-    
+
     if (existingImages.length > 0) {
       existingImages.forEach(img => formData.append("existingImages", img));
     } else {
       formData.append("existingImages", "");
     }
 
-    
+
     mediaFiles.forEach(file => formData.append("images", file));
 
-    
+
     if (videoFile) {
       formData.append("video", videoFile);
     } else if (existingVideo) {
       formData.append("existingVideo", existingVideo);
     } else {
-      
+
       formData.append("existingVideo", "");
     }
 
@@ -193,12 +194,12 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
         </div>
 
         <div className="overflow-y-auto flex-1 pr-2 custom-scrollbar">
-          {}
+          { }
           <div className="mb-6">
             <PostTypeTabs activeTab={activeTab as any} onTabChange={(t) => setActiveTab(t as any)} />
           </div>
 
-          {}
+          { }
           <div className="mb-4">
             <input
               type="text"
@@ -215,19 +216,19 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
             </div>
           </div>
 
-          {}
+          { }
 
-          {}
+          { }
           <div className={activeTab === "text" ? "block" : "hidden"}>
             <div className="quill-wrapper bg-white dark:bg-[#272a33] text-gray-900 dark:text-gray-100 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden" style={{ minHeight: "200px" }}>
               <div ref={quillRef} className="h-full min-h-[200px]" />
             </div>
           </div>
 
-          {}
+          { }
           {activeTab === "media" && (
             <div className="space-y-4">
-              {}
+              { }
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Video (Tùy chọn)</label>
                 {!existingVideo && !videoPreview ? (
@@ -246,7 +247,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
                 ) : (
                   <div className="relative">
                     <video controls className="w-full rounded-lg" preload="metadata">
-                      <source src={videoPreview || `http://localhost:8000${existingVideo}`} type="video/mp4" />
+                      <source src={videoPreview || `${BASE_URL}${existingVideo}`} type="video/mp4" />
                     </video>
                     <button
                       type="button"
@@ -259,7 +260,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
                 )}
               </div>
 
-              {}
+              { }
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Ảnh (Tùy chọn)</label>
                 <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center bg-gray-50 dark:bg-[#22252e] hover:bg-gray-100 dark:hover:bg-[#2a2d38] transition-colors cursor-pointer relative">
@@ -279,10 +280,10 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
                   </div>
                 </div>
 
-                {}
+                { }
                 {(existingImages.length > 0 || previewUrls.length > 0) && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                    {}
+                    { }
                     {existingImages.map((src, idx) => (
                       <div key={`exist-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                         <img src={getPostImageUrl(src)} alt="Existing" className="w-full h-full object-cover" />
@@ -295,7 +296,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
                         </button>
                       </div>
                     ))}
-                    {}
+                    { }
                     {previewUrls.map((src, idx) => (
                       <div key={`new-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
                         <img src={src} alt="New" className="w-full h-full object-cover" />
@@ -314,7 +315,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
             </div>
           )}
 
-          {}
+          { }
           {activeTab === "link" && (
             <div>
               <input
@@ -328,7 +329,7 @@ const EditPostModal: React.FC<EditPostModalProps> = ({ post, onClose, onSave }) 
 
         </div>
 
-        {}
+        { }
         <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={onClose}

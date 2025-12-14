@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 
 import { postService } from "../../../services/postService";
+import { BASE_URL } from "../../../utils/userUtils";
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    target: any; 
+    target: any;
     onDelete: () => void;
     onMarkSeen: () => void;
 }
@@ -115,7 +116,7 @@ const EditedDetailModal: React.FC<Props> = ({
                             dangerouslySetInnerHTML={{ __html: target.content || "" }}
                         />
 
-                        {}
+                        { }
                         {target.video && (
                             <div className="mt-4">
                                 <video
@@ -123,19 +124,19 @@ const EditedDetailModal: React.FC<Props> = ({
                                     className="w-full max-w-2xl rounded-lg"
                                     preload="metadata"
                                 >
-                                    <source src={`http://localhost:8000${target.video}`} type="video/mp4" />
+                                    <source src={`${BASE_URL}${target.video}`} type="video/mp4" />
                                     Trình duyệt của bạn không hỗ trợ video.
                                 </video>
                             </div>
                         )}
 
-                        {}
+                        { }
                         {((target.images && target.images.length > 0) || target.image) && (
                             <div className="mt-4 grid grid-cols-2 gap-2">
                                 {(target.images && target.images.length > 0 ? target.images : [target.image!]).map((img: string, idx: number) => (
                                     <img
                                         key={idx}
-                                        src={`http://localhost:8000${img}`}
+                                        src={`${BASE_URL}${img}`}
                                         alt={`Image ${idx + 1}`}
                                         className="rounded-lg w-full max-h-64 object-cover"
                                     />
@@ -143,7 +144,7 @@ const EditedDetailModal: React.FC<Props> = ({
                             </div>
                         )}
 
-                        {}
+                        { }
                         {target.linkUrl && (
                             <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <a
@@ -158,7 +159,7 @@ const EditedDetailModal: React.FC<Props> = ({
                         )}
                     </div>
 
-                    {}
+                    { }
                     <div className="mt-6">
                         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-3">Lịch sử thay đổi</h3>
                         {loading ? (
@@ -178,7 +179,7 @@ const EditedDetailModal: React.FC<Props> = ({
                                             dangerouslySetInnerHTML={{ __html: item.content }}
                                         />
 
-                                        {}
+                                        { }
                                         {item.video && (
                                             <div className="mt-3">
                                                 <video
@@ -186,19 +187,19 @@ const EditedDetailModal: React.FC<Props> = ({
                                                     className="w-full max-w-2xl rounded-lg"
                                                     preload="metadata"
                                                 >
-                                                    <source src={`http://localhost:8000${item.video}`} type="video/mp4" />
+                                                    <source src={`${BASE_URL}${item.video}`} type="video/mp4" />
                                                     Trình duyệt của bạn không hỗ trợ video.
                                                 </video>
                                             </div>
                                         )}
 
-                                        {}
+                                        { }
                                         {((item.images && item.images.length > 0) || item.image) && (
                                             <div className="mt-3 grid grid-cols-2 gap-2">
                                                 {(item.images && item.images.length > 0 ? item.images : [item.image!]).map((img: string, idx: number) => (
                                                     <img
                                                         key={idx}
-                                                        src={`http://localhost:8000${img}`}
+                                                        src={`${BASE_URL}${img}`}
                                                         alt={`History image ${idx + 1}`}
                                                         className="rounded-lg w-full max-h-48 object-cover"
                                                     />
@@ -206,7 +207,7 @@ const EditedDetailModal: React.FC<Props> = ({
                                             </div>
                                         )}
 
-                                        {}
+                                        { }
                                         {item.linkUrl && (
                                             <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                                                 <a

@@ -1,7 +1,7 @@
 
 import type { Post } from "../types/Post";
 
-const BASE_URL = import.meta.env.BACKEND_URL || "http://localhost:8000";
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 
 export function getVoteCount(post: Post) {

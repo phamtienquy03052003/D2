@@ -8,12 +8,6 @@ interface RefreshResponse {
   refreshToken: string;
 }
 
-// Logic: VITE_API_URL could be "https://domain.com" or "https://domain.com/api"
-// Safest: Use provided URL as base, and if it doesn't have /api, check if we need it.
-// Actually, simple logic:
-// const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-// const API_URL = `${BASE_URL}/api`; <-- double slash issue if user provides /api
-// Better: let user provide base domain, we append /api.
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 // Remove trailing slash if exists

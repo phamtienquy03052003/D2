@@ -18,6 +18,7 @@ import { postService } from "../../services/postService";
 import { commentService } from "../../services/commentService";
 import { useAuth } from "../../context/AuthContext";
 import { timeAgo } from "../../utils/dateUtils";
+import { BASE_URL } from "../../utils/postUtils";
 import type { Post } from "../../types/Post";
 import type { Comment } from "../../types/Comment";
 import ReportPostModal from "../../components/user/ReportPostModal";
@@ -48,9 +49,9 @@ const countTotalComments = (comments: Comment[]): number => {
   if (!comments || comments.length === 0) return 0;
   let count = 0;
   comments.forEach((comment) => {
-    count += 1; 
+    count += 1;
     if (comment.replies && comment.replies.length > 0) {
-      count += countTotalComments(comment.replies); 
+      count += countTotalComments(comment.replies);
     }
   });
   return count;
@@ -104,7 +105,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  
+
   useEffect(() => {
     if (!canInteract) {
       setActiveCommentCount(0);
@@ -130,23 +131,23 @@ const PostCard: React.FC<PostCardProps> = ({
     fetchCommentCount();
   }, [post._id, canInteract, post.commentCount]);
 
-  
+
   useEffect(() => {
     if (!canInteract) return;
 
-    
+
     socket.emit("joinPost", post._id);
 
     const handleNewComment = (comment: Comment) => {
-      
+
       if (comment.post === post._id) {
         setActiveCommentCount((prev) => prev + 1);
       }
     };
 
     const handleDeleteComment = () => {
-      
-      
+
+
       const fetchCommentCount = async () => {
         try {
           const comments = await commentService.getByPost(post._id);
@@ -169,7 +170,7 @@ const PostCard: React.FC<PostCardProps> = ({
     };
   }, [post._id, canInteract]);
 
-  
+
   useEffect(() => {
     setLocalVotes({
       upvotes: post.upvotes || [],
@@ -177,7 +178,7 @@ const PostCard: React.FC<PostCardProps> = ({
     });
   }, [post.upvotes, post.downvotes]);
 
-  
+
   useEffect(() => {
     if (!user?._id) return setUserVote(null);
 
@@ -189,13 +190,13 @@ const PostCard: React.FC<PostCardProps> = ({
     else setUserVote(null);
   }, [post.upvotes, post.downvotes, user?._id]);
 
-  
+
   const checkSavedStatus = async () => {
     if (!user?._id || !canInteract) return;
 
     try {
-      
-      
+
+
       const savedPosts = await postService.getSavedPosts();
       const saved = savedPosts.some((p) => p._id === post._id);
       setIsSaved(saved);
@@ -205,10 +206,10 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  
+
   useEffect(() => {
     const handler = ({ _id, upvotes, downvotes }: any) => {
-      
+
       if (_id === post._id) setLocalVotes({ upvotes, downvotes });
     };
 
@@ -219,7 +220,7 @@ const PostCard: React.FC<PostCardProps> = ({
     };
   }, [post._id]);
 
-  
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -231,12 +232,12 @@ const PostCard: React.FC<PostCardProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  
+
   const handleVote = async (type: "upvote" | "downvote") => {
     if (!canInteract) return;
 
     try {
-      
+
       setUserVote((prev) =>
         (prev === "up" && type === "upvote") ||
           (prev === "down" && type === "downvote")
@@ -253,25 +254,25 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  
+
   const handleEdit = () => {
     setMenuOpen(false);
     onEdit?.(post);
   };
 
-  
+
   const handleDelete = () => {
     setMenuOpen(false);
     onDelete?.(post._id);
   };
 
-  
+
   const handleReport = () => {
     setMenuOpen(false);
     setReportModalOpen(true);
   };
 
-  
+
   const handleShare = () => {
     if (!user) {
       toast.error("Vui lòng đăng nhập để chia sẻ bài viết");
@@ -287,9 +288,9 @@ const PostCard: React.FC<PostCardProps> = ({
     if (post.author?._id) navigate(`/nguoi-dung/${post.author.slug || post.author._id}`);
   };
 
-  
+
   const handleSave = async (e: React.MouseEvent) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     if (!canInteract || !user || isSaving) return;
 
     try {
@@ -297,7 +298,7 @@ const PostCard: React.FC<PostCardProps> = ({
       if (isSaved) {
         await postService.unsave(post._id);
         setIsSaved(false);
-        
+
         onUnsave?.(post._id);
       } else {
         await postService.save(post._id);
@@ -310,7 +311,7 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  
+
   const renderPostContent = () => {
     return (
       <>
@@ -327,7 +328,7 @@ const PostCard: React.FC<PostCardProps> = ({
           </div>
         )}
 
-        {}
+        { }
         {post.linkUrl && (
           <a
             href={post.linkUrl}
@@ -348,7 +349,7 @@ const PostCard: React.FC<PostCardProps> = ({
           </a>
         )}
 
-        {}
+        { }
         {post.video && (
           <div className="mb-3">
             <video
@@ -356,13 +357,13 @@ const PostCard: React.FC<PostCardProps> = ({
               className="w-full rounded-lg"
               preload="metadata"
             >
-              <source src={`http://localhost:8000${post.video}`} type="video/mp4" />
+              <source src={`${BASE_URL}${post.video}`} type="video/mp4" />
               Trình duyệt của bạn không hỗ trợ video.
             </video>
           </div>
         )}
 
-        {}
+        { }
         {((post.images && post.images.length > 0) || post.image) ? (
           <div className="mb-3">
             <ImageCarousel
@@ -372,7 +373,7 @@ const PostCard: React.FC<PostCardProps> = ({
           </div>
         ) : null}
 
-        {}
+        { }
         {post.sharedPost && (
           <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-[#1a1d25] mt-3 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer shadow-sm"
             onClick={(e) => {
@@ -380,16 +381,16 @@ const PostCard: React.FC<PostCardProps> = ({
               navigate(`/chi-tiet-bai-viet/${post.sharedPost?.slug || post.sharedPost?._id}`);
             }}
           >
-            {}
+            { }
             <div className="flex items-center space-x-2 mb-3">
               {post.sharedPost.community ? (
-                
+
                 <>
                   <div className="relative cursor-pointer" onClick={(e) => {
                     e.stopPropagation();
                     navigate(`/cong-dong/${post.sharedPost?.community?.slug || post.sharedPost?.community?._id}`);
                   }}>
-                    {}
+                    { }
                     <CommunityHoverCard communityId={post.sharedPost.community._id}>
                       <CommunityAvatar
                         community={post.sharedPost.community}
@@ -397,7 +398,7 @@ const PostCard: React.FC<PostCardProps> = ({
                         className="rounded-full border border-gray-100 dark:border-gray-700"
                       />
                     </CommunityHoverCard>
-                    {}
+                    { }
                     <div
                       className="absolute z-10 -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white dark:border-[#1a1d25] overflow-hidden cursor-pointer bg-white dark:bg-[#1a1d25]"
                       onClick={(e) => {
@@ -451,7 +452,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   </div>
                 </>
               ) : (
-                
+
                 <>
                   <UserHoverCard userId={post.sharedPost.author?._id || ""}>
                     <div
@@ -507,7 +508,7 @@ const PostCard: React.FC<PostCardProps> = ({
               </div>
             )}
 
-            {}
+            { }
             {post.sharedPost.linkUrl && (
               <a
                 href={post.sharedPost.linkUrl}
@@ -527,7 +528,7 @@ const PostCard: React.FC<PostCardProps> = ({
               </a>
             )}
 
-            {}
+            { }
             {(post.sharedPost.images && post.sharedPost.images.length > 0) || post.sharedPost.image ? (
               <div className="mb-3">
                 <ImageCarousel
@@ -544,17 +545,17 @@ const PostCard: React.FC<PostCardProps> = ({
 
   return (
     <div className="bg-white dark:bg-[#1a1d25] border-gray-200 dark:border-gray-800 rounded-2xl transition-colors hover:bg-gray-100 dark:hover:bg-[#1e212b]">
-      {}
+      { }
       <div className="flex items-center px-3 py-2 space-x-2">
         {post.community ? (
-          
+
           <>
-            {}
+            { }
             <div className="relative cursor-pointer" onClick={(e) => {
               e.stopPropagation();
               navigate(`/cong-dong/${post.community?.slug || post.community?._id}`);
             }}>
-              {}
+              { }
               <CommunityHoverCard communityId={post.community._id}>
                 <CommunityAvatar
                   community={post.community}
@@ -562,7 +563,7 @@ const PostCard: React.FC<PostCardProps> = ({
                   className="rounded-full border border-gray-100 dark:border-gray-700"
                 />
               </CommunityHoverCard>
-              {}
+              { }
               <div
                 className="absolute z-10 -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-white dark:border-[#1a1d25] overflow-hidden cursor-pointer bg-white dark:bg-[#1a1d25]"
                 onClick={(e) => {
@@ -584,9 +585,9 @@ const PostCard: React.FC<PostCardProps> = ({
               </div>
             </div>
 
-            {}
+            { }
             <div className="flex flex-col ml-2 justify-center">
-              {}
+              { }
               <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
                 <CommunityHoverCard communityId={post.community._id}>
                   <CommunityName
@@ -602,7 +603,7 @@ const PostCard: React.FC<PostCardProps> = ({
                 <span>{timeAgo(post.createdAt)}</span>
               </div>
 
-              {}
+              { }
               <div className="flex items-center space-x-2 mt-0.5">
                 <UserHoverCard userId={post.author?._id || ""}>
                   <UserName
@@ -612,16 +613,16 @@ const PostCard: React.FC<PostCardProps> = ({
                   />
                 </UserHoverCard>
 
-                {}
+                { }
                 <LevelTag level={post.author?.level ?? (user?._id === post.author?._id ? user?.level : undefined)} />
                 <NameTag tagId={post.author?.selectedNameTag} size="sm" />
               </div>
             </div>
           </>
         ) : (
-          
+
           <>
-            {}
+            { }
             <UserHoverCard userId={post.author?._id || ""}>
               <div
                 className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-white dark:bg-[#1a1d25] flex items-center justify-center cursor-pointer border border-gray-100 dark:border-gray-700"
@@ -636,7 +637,7 @@ const PostCard: React.FC<PostCardProps> = ({
               </div>
             </UserHoverCard>
 
-            {}
+            { }
             <div className="flex flex-col ml-2">
               <div className="flex items-center space-x-2">
                 <UserHoverCard userId={post.author?._id || ""}>
@@ -654,7 +655,7 @@ const PostCard: React.FC<PostCardProps> = ({
           </>
         )}
 
-        {}
+        { }
         <div className="ml-auto flex items-center space-x-2">
           {statusLabel && (
             <span
@@ -671,7 +672,7 @@ const PostCard: React.FC<PostCardProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!menuOpen) {
-                    checkSavedStatus(); 
+                    checkSavedStatus();
                   }
                   setMenuOpen((prev) => !prev);
                 }}
@@ -682,7 +683,7 @@ const PostCard: React.FC<PostCardProps> = ({
 
               {menuOpen && (
                 <div className="absolute right-0 top-8 bg-white dark:bg-[#1a1d25] border border-gray-200 dark:border-gray-700 rounded shadow-lg z-50 min-w-[180px]">
-                  {}
+                  { }
                   <button
                     onClick={(e) => {
                       handleSave(e);
@@ -695,7 +696,7 @@ const PostCard: React.FC<PostCardProps> = ({
                     <span>{isSaving ? "Đang xử lý..." : isSaved ? "Bỏ lưu" : "Lưu"}</span>
                   </button>
 
-                  {}
+                  { }
                   {user._id === post.author?._id && (
                     <>
                       <button
@@ -724,7 +725,7 @@ const PostCard: React.FC<PostCardProps> = ({
                     </>
                   )}
 
-                  {}
+                  { }
                   <button
                     onClick={(e) => { e.stopPropagation(); handleReport(); }}
                     className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
@@ -739,12 +740,12 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {}
+      { }
       <div className="px-3 pb-2 cursor-pointer" onClick={handleNavigate}>
         {renderPostContent()}
       </div>
 
-      {}
+      { }
       <div className="flex items-center px-2 pb-2 space-x-1">
         <div
           className={`flex items-center rounded-full px-2 py-1 transition-all ${userVote === "up"
@@ -819,7 +820,7 @@ const PostCard: React.FC<PostCardProps> = ({
           onClose={() => setShareModalOpen(false)}
           onShared={() => {
             console.log("Chia sẻ thành công!");
-            
+
           }}
         />
       )}

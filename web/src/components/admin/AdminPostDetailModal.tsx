@@ -1,6 +1,7 @@
 import React from "react";
 import { X, Calendar, MessageSquare, ThumbsUp, ThumbsDown, Shield, Users } from "lucide-react";
 import { getPostImageUrl } from "../../utils/postUtils";
+import { BASE_URL } from "../../utils/postUtils";
 import UserAvatar from "../common/UserAvatar";
 
 interface AdminPostDetailModalProps {
@@ -14,7 +15,7 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#1a1d25] rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-                {}
+                { }
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Chi tiết bài viết</h2>
                     <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
@@ -22,9 +23,9 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
                     </button>
                 </div>
 
-                {}
+                { }
                 <div className="p-6 overflow-y-auto">
-                    {}
+                    { }
                     <div className="flex items-center mb-6">
                         <UserAvatar user={post.author} size="w-10 h-10" />
                         <div className="ml-3">
@@ -47,7 +48,7 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
                         </div>
                     </div>
 
-                    {}
+                    { }
                     <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{post.title}</h1>
 
                     <div className="mb-6 text-gray-800 dark:text-gray-300 ql-snow">
@@ -55,7 +56,7 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
                     </div>
 
 
-                    {}
+                    { }
                     {post.images && post.images.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                             {post.images.map((img: string, index: number) => (
@@ -69,18 +70,18 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
                         </div>
                     )}
 
-                    {}
+                    { }
                     {post.video && (
                         <div className="mb-6">
                             <video
-                                src={`http://localhost:8000${post.video}`}
+                                src={`${BASE_URL}${post.video}`}
                                 controls
                                 className="w-full rounded-lg max-h-[500px]"
                             />
                         </div>
                     )}
 
-                    {}
+                    { }
                     {post.linkUrl && (
                         <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                             <a
@@ -95,7 +96,7 @@ const AdminPostDetailModal: React.FC<AdminPostDetailModalProps> = ({ post, onClo
                         </div>
                     )}
 
-                    {}
+                    { }
                     <div className="flex items-center space-x-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400">
                         <div className="flex items-center">
                             <ThumbsUp className="w-5 h-5 mr-2 text-blue-500" />

@@ -2,6 +2,7 @@ import React from "react";
 import type { Report } from "../../../types/Report";
 import { Eye, AlertCircle, Trash2, XCircle } from "lucide-react";
 import { getReasonLabel } from "../../../constants/reportReasons";
+import { BASE_URL } from "../../../utils/userUtils";
 
 interface Props {
   target: any;
@@ -24,12 +25,12 @@ const ReportDetail: React.FC<Props> = ({
   const authorName = target.author?.name || target.author?.username || "Người dùng ẩn";
   const createdAt = target.createdAt ? new Date(target.createdAt).toLocaleString("vi-VN") : "Chưa rõ";
 
-  
+
   const hasUnresolvedReports = reports.some(r => r.status === "Pending" || r.status === "Viewed");
 
   return (
     <div className="bg-gray-50 dark:bg-[#1a1d25] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-      {}
+      { }
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
         <div>
           <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
@@ -61,7 +62,7 @@ const ReportDetail: React.FC<Props> = ({
         )}
       </div>
 
-      {}
+      { }
       <div className="bg-white dark:bg-[#20232b] p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-6 shadow-sm">
         {isPost && (
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">
@@ -73,7 +74,7 @@ const ReportDetail: React.FC<Props> = ({
           dangerouslySetInnerHTML={{ __html: target.content }}
         />
 
-        {}
+        { }
         {target.video && (
           <div className="mt-4">
             <video
@@ -81,19 +82,19 @@ const ReportDetail: React.FC<Props> = ({
               className="w-full max-w-2xl rounded-lg"
               preload="metadata"
             >
-              <source src={`http://localhost:8000${target.video}`} type="video/mp4" />
+              <source src={`${BASE_URL}${target.video}`} type="video/mp4" />
               Trình duyệt của bạn không hỗ trợ video.
             </video>
           </div>
         )}
 
-        {}
+        { }
         {((target.images && target.images.length > 0) || target.image) && (
           <div className="mt-4 grid grid-cols-2 gap-2">
             {(target.images && target.images.length > 0 ? target.images : [target.image!]).map((img: string, idx: number) => (
               <img
                 key={idx}
-                src={`http://localhost:8000${img}`}
+                src={`${BASE_URL}${img}`}
                 alt={`Image ${idx + 1}`}
                 className="rounded-lg w-full max-h-64 object-cover"
               />
@@ -101,7 +102,7 @@ const ReportDetail: React.FC<Props> = ({
           </div>
         )}
 
-        {}
+        { }
         {target.linkUrl && (
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <a
@@ -116,7 +117,7 @@ const ReportDetail: React.FC<Props> = ({
         )}
       </div>
 
-      {}
+      { }
       <div>
         <h4 className="font-semibold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
           Danh sách báo cáo
@@ -137,10 +138,10 @@ const ReportDetail: React.FC<Props> = ({
                 key={r._id}
                 className="bg-white dark:bg-[#20232b] p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors shadow-sm"
               >
-                {}
+                { }
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2 flex-1">
-                    {}
+                    { }
                     <div className="flex-1">
                       <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {reasonLabel}
@@ -190,7 +191,7 @@ const ReportDetail: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {}
+                { }
                 {r.description && (
                   <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div className="flex items-start gap-2">
