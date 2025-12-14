@@ -1,23 +1,33 @@
 import axios from "axios";
 import toast from "react-hot-toast";
 import { socket } from "../socket";
+import { jwtDecode } from "jwt-decode";
 
 interface RefreshResponse {
   accessToken: string;
   refreshToken: string;
 }
 
+// Logic: VITE_API_URL could be "https://domain.com" or "https://domain.com/api"
+// Safest: Use provided URL as base, and if it doesn't have /api, check if we need it.
+// Actually, simple logic:
+// const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// const API_URL = `${BASE_URL}/api`; <-- double slash issue if user provides /api
+// Better: let user provide base domain, we append /api.
+
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Remove trailing slash if exists
+const CLEAN_BASE_URL = BASE_URL.replace(/\/+$/, "");
+const API_URL = `${CLEAN_BASE_URL}/api`;
+
 const apiClient = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
 
-import { jwtDecode } from "jwt-decode";
-
-
 const refreshTokenLogic = async () => {
   return await navigator.locks.request("token-refresh", async () => {
-    
+
     const currentToken = localStorage.getItem("accessToken");
     if (currentToken) {
       try {
@@ -26,7 +36,7 @@ const refreshTokenLogic = async () => {
           return currentToken;
         }
       } catch (e) {
-        
+
       }
     }
 
@@ -34,7 +44,7 @@ const refreshTokenLogic = async () => {
     if (!refreshToken) throw new Error("Missing refresh token");
 
     const res = await axios.post<RefreshResponse>(
-      "http://localhost:8000/api/auth/refresh",
+      `${API_URL}/auth/refresh`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -61,14 +71,14 @@ apiClient.interceptors.request.use(
     if (token) {
       try {
         const decoded: any = jwtDecode(token);
-        
+
         if (decoded.exp * 1000 < Date.now() + 10000) {
           try {
             token = await refreshTokenLogic();
           } catch (error) {
             console.error("Proactive refresh failed", error);
-            
-            
+
+
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
             window.location.href = "/trang-chu";
@@ -76,7 +86,7 @@ apiClient.interceptors.request.use(
           }
         }
       } catch (error) {
-        
+
       }
     }
 
@@ -84,7 +94,7 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    
+
     if (config.data instanceof FormData && config.headers) {
       delete config.headers['Content-Type'];
     }
@@ -118,21 +128,21 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        
+
         return await navigator.locks.request("token-refresh", async () => {
-          
+
           const currentToken = localStorage.getItem("accessToken");
           if (currentToken && currentToken !== originalRequest.headers.Authorization?.split(" ")[1]) {
             originalRequest.headers.Authorization = `Bearer ${currentToken}`;
             return apiClient(originalRequest);
           }
 
-          
+
           const refreshToken = localStorage.getItem("refreshToken");
           if (!refreshToken) throw new Error("Missing refresh token");
 
           const res = await axios.post<RefreshResponse>(
-            "http://localhost:8000/api/auth/refresh",
+            `${API_URL}/auth/refresh`,
             { refreshToken },
             { headers: { "Content-Type": "application/json" } }
           );
@@ -144,13 +154,13 @@ apiClient.interceptors.response.use(
             localStorage.setItem("refreshToken", newRefreshToken);
           }
 
-          
+
           socket.auth = { token: accessToken };
           socket.disconnect().connect();
 
           apiClient.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
 
-          
+
           if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
             originalRequest.headers.set('Authorization', `Bearer ${accessToken}`);
           } else {
@@ -158,9 +168,9 @@ apiClient.interceptors.response.use(
             originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
           }
 
-          
-          
-          
+
+
+
 
           return apiClient(originalRequest);
         });
@@ -174,7 +184,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    
+
     const errorMessage = error.response?.data?.message || "Something went wrong";
     toast.error(errorMessage);
 
