@@ -9,7 +9,7 @@ interface RefreshResponse {
 }
 
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_URL;
 // Remove trailing slash if exists
 const CLEAN_BASE_URL = BASE_URL.replace(/\/+$/, "");
 const API_URL = `${CLEAN_BASE_URL}/api`;

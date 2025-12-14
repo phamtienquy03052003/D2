@@ -1,7 +1,7 @@
 
 import type { Post } from "../types/Post";
 
-export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const BASE_URL = import.meta.env.VITE_API_URL;
 
 
 export function getVoteCount(post: Post) {
@@ -18,9 +18,9 @@ export function getUserVote(post: Post, userId: string): "up" | "down" | null {
 
 export function getAuthorAvatar(post: Post): string {
   const avatar = post.author.avatar;
-  if (!avatar) return `${BASE_URL}/uploads/avatars/user_avatar_default.png`;
+  if (!avatar) return `${BASE_URL || ""}/uploads/avatars/user_avatar_default.png`;
   if (avatar.startsWith("http")) return avatar;
-  return `${BASE_URL}${avatar}`;
+  return `${BASE_URL || ""}${avatar}`;
 }
 
 
@@ -36,5 +36,5 @@ export function hasImage(post: Post): boolean {
 export function getPostImageUrl(url: string): string {
   if (!url) return "";
   if (url.startsWith("http") || url.startsWith("blob:")) return url;
-  return `${BASE_URL}${url}`;
+  return `${BASE_URL || ""}${url}`;
 }

@@ -2,7 +2,7 @@
 import type { Community } from "../types/Community";
 import type { User } from "../types/User";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 
 export function isCreator(community: Community, userId: string): boolean {
@@ -44,12 +44,12 @@ export function isPending(community: Community, userId: string): boolean {
 
 
 export function getCommunityAvatarUrl(community?: Community | null): string {
-  if (!community?.avatar) return `${BASE_URL}/uploads/communityAvatars/community_avatar_default.png`;
+  if (!community?.avatar) return `${BASE_URL || ""}/uploads/communityAvatars/community_avatar_default.png`;
   if (community.avatar.startsWith("http")) return community.avatar;
 
 
   const version = community.updatedAt ? new Date(community.updatedAt).getTime() : 1;
-  return `${BASE_URL}${community.avatar}?t=${version}`;
+  return `${BASE_URL || ""}${community.avatar}?t=${version}`;
 }
 
 
