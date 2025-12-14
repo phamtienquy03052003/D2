@@ -1,5 +1,9 @@
 import Community from "../models/Community.js";
 
+/**
+ * Middleware kiểm tra quyền Moderator của Community
+ * - Chỉ cho phép Owner hoặc Mod của cộng đồng thực hiện hành động.
+ */
 export const isCommunityMod = async (req, res, next) => {
   const { communityId } = req.params;
   const userId = req.user.id;

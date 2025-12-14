@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-
+/**
+ * Middleware xác thực Access Token (JWT)
+ * - Kiểm tra token trong header Authorization.
+ * - Giải mã và gán `req.user` nếu hợp lệ.
+ */
 export const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Access token required" });
@@ -22,7 +26,10 @@ export const verifyToken = (req, res, next) => {
   }
 };
 
-
+/**
+ * Middleware xác thực Token tùy chọn (Optional)
+ * - Nếu có token thì verify, không có thì vẫn cho qua (để dùng cho public route nhưng cần check follow/block nếu có login).
+ */
 export const verifyTokenOptional = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) {
@@ -34,12 +41,15 @@ export const verifyTokenOptional = (req, res, next) => {
     req.user = { id: decoded.id || decoded._id || decoded.userId };
     next();
   } catch (err) {
-    
+    // Token lỗi thì coi như khách vãng lai (không lỗi 403)
     next();
   }
 };
 
-
+/**
+ * Middleware kiểm tra quyền Admin
+ * - Chỉ cho phép user có role="admin" truy cập.
+ */
 export const isAdmin = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
