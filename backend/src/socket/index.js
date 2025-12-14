@@ -9,7 +9,12 @@ let io;
 export const initSocket = (httpServer) => {
     io = new Server(httpServer, {
         cors: {
-            origin: "*",
+            origin: [
+                "http://localhost:5173",
+                "http://localhost:3000",
+                process.env.FRONTEND_URL,
+                "https://damdao.vercel.app"
+            ],
             methods: ["GET", "POST"],
             credentials: true,
         },
@@ -20,15 +25,15 @@ export const initSocket = (httpServer) => {
     io.on("connection", (socket) => {
         console.log("User connected:", socket.id);
 
-        
+
         socket.on("joinPost", (postId) => {
             socket.join(postId);
-            
+
         });
 
         socket.on("leavePost", (postId) => {
             socket.leave(postId);
-            
+
         });
 
         socket.on("joinUser", (userId) => {
@@ -40,12 +45,12 @@ export const initSocket = (httpServer) => {
             console.log("User disconnected:", socket.id);
         });
 
-        
+
         userHandler(io, socket);
         chatHandler(io, socket);
     });
 
-    
+
     modMailSocket(io);
 
     return io;
