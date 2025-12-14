@@ -2,7 +2,7 @@
 import type { User } from "../types/User";
 import type { UserInfo } from "../types/Notification";
 
-export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+export const BASE_URL = import.meta.env.VITE_API_URL;
 
 
 export function getUserDisplayName(user: User): string {
