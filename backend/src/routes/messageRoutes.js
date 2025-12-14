@@ -11,10 +11,14 @@ import { validateRequest } from "../middleware/validationMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", verifyToken, validateSendMessage, validateRequest, messageController.sendMessage);
-router.get("/:conversationId", verifyToken, messageController.getMessages);
-router.patch("/:conversationId/read", verifyToken, validateMarkAsRead, validateRequest, messageController.markAsRead);
-router.put("/:messageId/react", verifyToken, validateToggleReaction, validateRequest, messageController.toggleReaction);
-router.get("/:conversationId/search", verifyToken, validateSearchMessages, validateRequest, messageController.searchMessages);
+/**
+ * Routes tin nhắn (Messages)
+ */
+
+router.post("/", verifyToken, validateSendMessage, validateRequest, messageController.sendMessage); // Gửi tin nhắn
+router.get("/:conversationId", verifyToken, messageController.getMessages); // Lấy tin nhắn (kèm phân trang)
+router.patch("/:conversationId/read", verifyToken, validateMarkAsRead, validateRequest, messageController.markAsRead); // Đánh dấu đã đọc
+router.put("/:messageId/react", verifyToken, validateToggleReaction, validateRequest, messageController.toggleReaction); // Thả cảm xúc
+router.get("/:conversationId/search", verifyToken, validateSearchMessages, validateRequest, messageController.searchMessages); // Tìm kiếm tin nhắn
 
 export default router;

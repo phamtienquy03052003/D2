@@ -36,37 +36,41 @@ import { validateRequest } from "../middleware/validationMiddleware.js";
 
 const router = express.Router();
 
+/**
+ * Routes người dùng (User)
+ */
 
-router.get("/me", verifyToken, getMe);
-router.put("/me", verifyToken, updateProfileValidator, validateRequest, updateProfile);
-router.put("/me/privacy", verifyToken, updatePrivacy);
-router.put("/me/password", verifyToken, updatePasswordValidator, validateRequest, updatePassword);
-router.put("/me/phone", verifyToken, updatePhoneValidator, validateRequest, updatePhone);
-router.put("/me/gender", verifyToken, updateGenderValidator, validateRequest, updateGender);
-router.put("/me/chat-request-permission", verifyToken, updateChatRequestPermission);
-router.put("/me/nametag", verifyToken, updateNameTag);
+// --- Cá nhân (Me) ---
+router.get("/me", verifyToken, getMe); // Lấy thông tin bản thân
+router.put("/me", verifyToken, updateProfileValidator, validateRequest, updateProfile); // Cập nhật hồ sơ
+router.put("/me/privacy", verifyToken, updatePrivacy); // Cài đặt riêng tư
+router.put("/me/password", verifyToken, updatePasswordValidator, validateRequest, updatePassword); // Đổi mật khẩu
+router.put("/me/phone", verifyToken, updatePhoneValidator, validateRequest, updatePhone); // Cập nhật SĐT
+router.put("/me/gender", verifyToken, updateGenderValidator, validateRequest, updateGender); // Cập nhật giới tính
+router.put("/me/chat-request-permission", verifyToken, updateChatRequestPermission); // Cài đặt quyền nhắn tin
+router.put("/me/nametag", verifyToken, updateNameTag); // Thay đổi thẻ tên
 
-router.get("/search", verifyToken, searchUsers);
+router.get("/search", verifyToken, searchUsers); // Tìm kiếm người dùng
 
+// --- Tương tác (Block/Follow) ---
+router.post("/me/block", verifyToken, blockUser); // Chặn người dùng
+router.post("/me/unblock", verifyToken, unblockUser); // Bỏ chặn
+router.get("/me/blocked", verifyToken, getBlockedUsers); // Danh sách chặn
+router.get("/me/xp-history", verifyToken, getXPHistory); // Lịch sử nhận XP
 
-router.post("/me/block", verifyToken, blockUser);
-router.post("/me/unblock", verifyToken, unblockUser);
-router.get("/me/blocked", verifyToken, getBlockedUsers);
-router.get("/me/xp-history", verifyToken, getXPHistory);
+// Follow
+router.get("/me/followers", verifyToken, getMyFollowers); // Danh sách người theo dõi mình
+router.post("/me/follow", verifyToken, followUser); // Theo dõi người khác
+router.post("/me/unfollow", verifyToken, unfollowUser); // Bỏ theo dõi
+router.post("/me/follow/notification", verifyToken, toggleFollowNotification); // Bật/tắt thông báo từ người follow
+router.get("/me/follow/:followingId", verifyToken, getFollowStatus); // Kiểm tra trạng thái follow
 
+// --- Public ---
+router.get("/public/:id", verifyTokenOptional, getUserPublic); // Lấy profile công khai
 
-router.get("/me/followers", verifyToken, getMyFollowers);
-router.post("/me/follow", verifyToken, followUser);
-router.post("/me/unfollow", verifyToken, unfollowUser);
-router.post("/me/follow/notification", verifyToken, toggleFollowNotification);
-router.get("/me/follow/:followingId", verifyToken, getFollowStatus);
-
-
-router.get("/public/:id", verifyTokenOptional, getUserPublic);
-
-
-router.get("/", verifyToken, isAdmin, getAllUsers);
-router.put("/:id", verifyToken, isAdmin, updateUser);
-router.delete("/:id", verifyToken, isAdmin, deleteUser);
+// --- Admin ---
+router.get("/", verifyToken, isAdmin, getAllUsers); // Lấy tất cả user (Admin)
+router.put("/:id", verifyToken, isAdmin, updateUser); // Cập nhật user (Admin)
+router.delete("/:id", verifyToken, isAdmin, deleteUser); // Xóa user (Admin)
 
 export default router;

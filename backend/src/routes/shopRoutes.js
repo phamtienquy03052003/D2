@@ -4,7 +4,11 @@ import { getShopItems, buyItem } from "../controllers/shopController.js";
 
 const router = express.Router();
 
-router.get("/", getShopItems);
-router.post("/buy", verifyToken, buyItem);
+/**
+ * Routes cửa hàng (Shop)
+ */
+
+router.get("/", getShopItems); // Lấy danh sách vật phẩm
+router.post("/buy", verifyToken, buyItem); // Mua vật phẩm
 
 export default router;

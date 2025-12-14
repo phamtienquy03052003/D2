@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema thống kê ngày của cộng đồng
+ * - Lưu trữ số liệu truy cập, thành viên mới theo ngày.
+ */
 const communityDailyStatSchema = new mongoose.Schema(
     {
         community: {
@@ -9,7 +13,7 @@ const communityDailyStatSchema = new mongoose.Schema(
             index: true,
         },
         date: {
-            type: String, 
+            type: String, // Format YYYY-MM-DD
             required: true,
             index: true,
         },
@@ -28,7 +32,7 @@ const communityDailyStatSchema = new mongoose.Schema(
         visitedIps: {
             type: [String],
             default: [],
-            select: false, 
+            select: false,
         },
     },
     { timestamps: true }

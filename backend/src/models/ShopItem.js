@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema vật phẩm cửa hàng (Shop Item)
+ * - Quản lý các vật phẩm bán trong Shop (Thẻ tên, Gói XP...).
+ */
 const shopItemSchema = new mongoose.Schema(
     {
         name: {
@@ -22,10 +26,13 @@ const shopItemSchema = new mongoose.Schema(
             required: true,
             min: 0,
         },
+
+        // Giá trị nhận được (số XP, ID style thẻ tên...)
         value: {
             type: mongoose.Schema.Types.Mixed,
             required: true,
         },
+
         icon: {
             type: String,
             default: "",
@@ -34,6 +41,7 @@ const shopItemSchema = new mongoose.Schema(
             type: String,
             default: "#3B82F6",
         },
+
         isActive: {
             type: Boolean,
             default: true,
@@ -43,6 +51,7 @@ const shopItemSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

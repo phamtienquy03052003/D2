@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema tin nhắn Modmail
+ * - Nội dung trao đổi trong ModConversation.
+ */
 const ModMessageSchema = new mongoose.Schema(
   {
     conversation: { type: mongoose.Schema.Types.ObjectId, ref: "ModConversation", required: true },

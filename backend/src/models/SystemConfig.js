@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema cấu hình hệ thống (System Configuration)
+ * - Lưu trữ các cài đặt động của ứng dụng (không cần deploy lại).
+ */
 const systemConfigSchema = new mongoose.Schema(
     {
         key: {

@@ -48,3 +48,4 @@ Thumbs.db
 # Others
 *.sqlite
 *.sqlite3
+/backend/data/dataset.json

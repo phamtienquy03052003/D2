@@ -5,10 +5,12 @@ import { updateUserAvatar, updateCommunityAvatar } from "../controllers/uploadCo
 
 const router = express.Router();
 
+/**
+ * Routes tải lên (Upload)
+ * - Xử lý upload ảnh đại diện user và community.
+ */
 
 router.post("/user/avatar", verifyToken, uploadUserAvatar.single("avatar"), updateUserAvatar);
-
-
 router.post("/community/avatar", verifyToken, uploadCommunityAvatar.single("avatar"), updateCommunityAvatar);
 
 export default router;

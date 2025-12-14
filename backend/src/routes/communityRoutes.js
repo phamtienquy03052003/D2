@@ -1,6 +1,6 @@
 import express from "express";
 import { verifyToken, isAdmin, verifyTokenOptional } from "../middleware/authMiddleware.js";
-const authMiddleware = verifyToken; 
+const authMiddleware = verifyToken;
 import {
   createCommunity,
   getCommunities,
@@ -39,31 +39,31 @@ import {
   getCommunityStats,
   logVisit,
   getTopCommunities,
-  inviteUser, 
+  inviteUser,
 } from "../controllers/communityController.js";
 import { validateCreateCommunity, validateUpdateCommunity } from "../validators/communityValidator.js";
 import { validateRequest } from "../middleware/validationMiddleware.js";
+import { uploadCommunityAvatar } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-
+// --- Admin ---
 router.get("/admin/all", verifyToken, isAdmin, adminGetCommunities);
 router.put("/admin/:id", verifyToken, isAdmin, adminUpdateCommunity);
 router.delete("/admin/:id", verifyToken, isAdmin, adminDeleteCommunity);
 
+// --- User Communities ---
+router.get("/my-created", verifyToken, getUserCreatedCommunities); // Cộng đồng đã tạo
+router.get("/managed", verifyToken, getManagedCommunities); // Cộng đồng đang quản lý (Mod/Creator)
+router.get("/getUser", verifyToken, getUserCommunities); // Cộng đồng đã tham gia (Private)
+router.get("/user/:userId", verifyTokenOptional, getUserPublicCommunities); // Cộng đồng đã tham gia (Public)
 
-router.get("/my-created", verifyToken, getUserCreatedCommunities);
+// --- Insights & Info ---
+router.get("/recent/history", verifyToken, getRecentCommunities); // Cộng đồng truy cập gần đây
+router.get("/:communityId/pending", verifyToken, getPendingMembers); // Member chờ duyệt
+router.get("/restricted-users", verifyToken, getRestrictedUsersForCommunities); // Member bị cấm
 
-router.get("/managed", verifyToken, getManagedCommunities);
-router.get("/getUser", verifyToken, getUserCommunities);
-router.get("/user/:userId", verifyTokenOptional, getUserPublicCommunities);
-
-
-router.get("/recent/history", verifyToken, getRecentCommunities);
-router.get("/:communityId/pending", verifyToken, getPendingMembers);
-router.get("/restricted-users", verifyToken, getRestrictedUsersForCommunities);
-
-
+// Kiểm tra member
 router.get("/:id/is-member", verifyToken, async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
@@ -79,34 +79,33 @@ router.get("/:id/is-member", verifyToken, async (req, res) => {
   }
 });
 
+// --- Actions ---
+router.post("/", verifyToken, validateCreateCommunity, validateRequest, createCommunity); // Tạo cộng đồng
 
-router.post("/", verifyToken, validateCreateCommunity, validateRequest, createCommunity);
+router.post("/:id/join", verifyToken, joinCommunity); // Tham gia
+router.post("/:id/leave", verifyToken, leaveCommunity); // Rời cộng đồng
+router.post("/:id/invite", verifyToken, inviteUser); // Mời thành viên
+router.post("/:id/notification", verifyToken, toggleNotification); // Bật/tắt thông báo
 
-router.post("/:id/join", verifyToken, joinCommunity);
-router.post("/:id/leave", verifyToken, leaveCommunity);
-router.post("/:id/invite", verifyToken, inviteUser); 
-router.post("/:id/notification", verifyToken, toggleNotification);
-
-router.post("/:communityId/approve/:memberId", verifyToken, approveMember);
-router.post("/:communityId/reject/:memberId", verifyToken, rejectMember);
-
+// --- Moderation (Quản lý thành viên) ---
+router.post("/:communityId/approve/:memberId", verifyToken, approveMember); // Duyệt thành viên
+router.post("/:communityId/reject/:memberId", verifyToken, rejectMember); // Từ chối
 router.delete("/:id", verifyToken, deleteCommunity);
-router.post("/:communityId/restrict/:memberId", verifyToken, restrictMember);
-router.delete("/:communityId/kick/:memberId", verifyToken, kickMember);
+router.post("/:communityId/restrict/:memberId", verifyToken, restrictMember); // Cấm thành viên (Mute)
+router.delete("/:communityId/kick/:memberId", verifyToken, kickMember); // Kick
+router.delete("/:communityId/unrestrict/:memberId", verifyToken, unrestrictMember); // Bỏ cấm
 
-router.delete("/:communityId/unrestrict/:memberId", verifyToken, unrestrictMember);
-
+// Quản lý Moderator
 router.post("/:communityId/moderators/:memberId", verifyToken, addModerator);
 router.delete("/:communityId/moderators/:memberId", verifyToken, removeModerator);
 
-import { uploadCommunityAvatar } from "../middleware/uploadMiddleware.js";
-
+// --- Settings ---
 router.put("/:id", verifyToken, uploadCommunityAvatar.single("avatar"), validateUpdateCommunity, validateRequest, updateCommunity);
 router.put("/:id/privacy", verifyToken, updatePrivacy);
-router.put("/:communityId/approval", verifyToken, toggleApproval);
-router.put("/:communityId/post-approval", verifyToken, togglePostApproval);
+router.put("/:communityId/approval", verifyToken, toggleApproval); // Bật/tắt duyệt thành viên
+router.put("/:communityId/post-approval", verifyToken, togglePostApproval); // Bật/tắt duyệt bài viết
 
-
+// --- Public/General ---
 router.get("/top", getTopCommunities);
 router.get("/", getCommunities);
 router.get("/:id", verifyTokenOptional, getCommunityById);

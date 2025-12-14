@@ -29,33 +29,35 @@ import { validateRequest } from "../middleware/validationMiddleware.js";
 
 const router = express.Router();
 
+// --- Admin ---
+router.delete("/admin/:id", verifyToken, isAdmin, adminDeletePost); // Admin xóa bài
 
-router.delete("/admin/:id", verifyToken, isAdmin, adminDeletePost);
+// --- Moderation (Kiểm duyệt) ---
+router.get("/moderation/pending", verifyToken, getPendingPostsForModeration); // Bài chờ duyệt
+router.get("/moderation/removed", verifyToken, getRemovedPostsForModeration); // Bài bị xóa
+router.get("/moderation/edited", verifyToken, getEditedPostsForModeration); // Bài đã sửa
 
+// --- Bộ lọc cá nhân ---
+router.get("/saved/all", verifyToken, getSavedPosts); // Bài đã lưu
+router.get("/recent/history", verifyToken, getRecentPosts); // Lịch sử xem
+router.get("/liked/all", verifyToken, getLikedPosts); // Bài đã Like
+router.get("/disliked/all", verifyToken, getDislikedPosts); // Bài đã Dislike
+router.get("/user/:userId", verifyTokenOptional, getPostsByUser); // Bài viết của User
 
-router.get("/moderation/pending", verifyToken, getPendingPostsForModeration);
-router.get("/moderation/removed", verifyToken, getRemovedPostsForModeration);
-router.get("/moderation/edited", verifyToken, getEditedPostsForModeration);
+// --- Công cộng ---
+router.get("/", verifyTokenOptional, getAllPosts); // Lấy danh sách bài viết (New Feed/Community)
+router.post("/", verifyToken, uploadPostMedia, validateCreatePost, validateRequest, createPost); // Tạo bài viết mới
 
-
-router.get("/saved/all", verifyToken, getSavedPosts);
-router.get("/recent/history", verifyToken, getRecentPosts);
-router.get("/liked/all", verifyToken, getLikedPosts);
-router.get("/disliked/all", verifyToken, getDislikedPosts);
-router.get("/user/:userId", verifyTokenOptional, getPostsByUser);
-router.get("/", verifyTokenOptional, getAllPosts);
-router.post("/", verifyToken, uploadPostMedia, validateCreatePost, validateRequest, createPost);
-
-
-router.post("/:id/seen", verifyToken, markEditedPostSeen);
-router.get("/:id/history", verifyToken, getPostHistory);
-router.get("/:id", verifyTokenOptional, getPostById);
-router.put("/:id", verifyToken, uploadPostMedia, validateUpdatePost, validateRequest, updatePost);
-router.delete("/:id", verifyToken, deletePost);
-router.post("/:id/vote", verifyToken, votePost);
-router.post("/:id/moderate", verifyToken, moderatePost);
-router.post("/:id/save", verifyToken, savePost);
-router.delete("/:id/save", verifyToken, unsavePost);
-router.patch("/:id/lock", verifyToken, validateLockPost, validateRequest, toggleLock);
+// --- Chi tiết bài viết & Tương tác ---
+router.post("/:id/seen", verifyToken, markEditedPostSeen); // Đánh dấu đã xem bài sửa
+router.get("/:id/history", verifyToken, getPostHistory); // Lịch sử chỉnh sửa
+router.get("/:id", verifyTokenOptional, getPostById); // Xem chi tiết
+router.put("/:id", verifyToken, uploadPostMedia, validateUpdatePost, validateRequest, updatePost); // Sửa bài
+router.delete("/:id", verifyToken, deletePost); // Xóa bài (User/Mod)
+router.post("/:id/vote", verifyToken, votePost); // Vote (Love/Dislike)
+router.post("/:id/moderate", verifyToken, moderatePost); // Duyệt/Xóa/Yêu cầu sửa (Mod)
+router.post("/:id/save", verifyToken, savePost); // Lưu bài
+router.delete("/:id/save", verifyToken, unsavePost); // Bỏ lưu
+router.patch("/:id/lock", verifyToken, validateLockPost, validateRequest, toggleLock); // Khóa/Mở khóa bài
 
 export default router;
