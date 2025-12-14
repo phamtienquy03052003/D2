@@ -2,13 +2,14 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
+import VerificationCode from "../models/VerificationCode.js";
 import {
   generateAccessToken,
   generateRefreshToken,
   cleanupRefreshTokens,
   safeVerifyRefreshToken
 } from "../utils/generateTokens.js";
-import { sendResetEmail } from "../utils/email.js";
+import { sendResetEmail, sendVerificationEmail } from "../utils/email.js";
 import slugify from "slugify";
 import { nanoid } from "nanoid";
 
@@ -29,21 +30,86 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
  * 5. Tạo Access Token và Refresh Token.
  * 6. Lưu user vào DB.
  */
+/**
+ * Bước 1: Gửi mã xác nhận đăng ký
+ */
+export const sendRegisterCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // 1. Kiểm tra email đã có người dùng chưa
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "Email đã được sử dụng" });
+
+    // 2. Tạo mã OTP (6 số)
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Lưu vào DB (VerificationCode), xóa mã cũ nếu có
+    await VerificationCode.deleteMany({ email, type: "register" });
+    await VerificationCode.create({ email, code, type: "register" });
+
+    // 4. Gửi email
+    await sendVerificationEmail(email, code);
+
+    res.status(200).json({ message: "Mã xác nhận đã được gửi vào email" });
+  } catch (err) {
+    console.error("Gửi mã thất bại:", err);
+    res.status(500).json({ message: "Lỗi máy chủ" });
+  }
+};
+
+/**
+ * Bước 2: Xác thực mã đăng ký --> Trả về Temporary Token
+ */
+export const verifyRegisterCode = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    const record = await VerificationCode.findOne({ email, code, type: "register" });
+    if (!record) {
+      return res.status(400).json({ message: "Mã xác nhận không đúng hoặc đã hết hạn" });
+    }
+
+    // Mã đúng -> Tạo token tạm thời (chứa email) để client dùng cho bước đăng ký tiếp theo
+    // Token này chỉ sống 15 phút
+    const registerToken = jwt.sign({ email }, process.env.JWT_ACCESS_SECRET, { expiresIn: "15m" });
+
+    // Xóa mã đã dùng
+    await VerificationCode.deleteOne({ _id: record._id });
+
+    res.status(200).json({
+      message: "Xác thực thành công",
+      registerToken
+    });
+  } catch (err) {
+    console.error("Verify code thất bại:", err);
+    res.status(500).json({ message: "Lỗi máy chủ" });
+  }
+};
+
+/**
+ * Bước 3: Đăng ký (Final) --> Nhận Token tạm, tên, mật khẩu
+ */
 export const register = async (req, res) => {
   try {
-    const { name, email, password, phone, gender } = req.body;
+    const { registerToken, name, password, phone, gender } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ message: "Thiếu thông tin bắt buộc (email hoặc mật khẩu)" });
+    // 1. Verify token tạm để lấy email
+    let decoded;
+    try {
+      decoded = jwt.verify(registerToken, process.env.JWT_ACCESS_SECRET);
+    } catch (e) {
+      return res.status(400).json({ message: "Token xác thực hết hạn hoặc không hợp lệ. Vui lòng thực hiện lại từ đầu." });
+    }
 
+    const { email } = decoded;
+
+    // Kiểm tra lại lần nữa cho chắc
     const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: "Email đã được sử dụng" });
+    if (existing) return res.status(400).json({ message: "Email đã được sử dụng" });
 
     const salt = await bcrypt.genSalt(Number(process.env.BCRYPT_SALT_ROUNDS || 10));
     const hashedPassword = await bcrypt.hash(password, salt);
-
-
 
     let nameToSlug = name || email.split('@')[0];
     let baseSlug = slugify(nameToSlug, { lower: true, strict: true });
@@ -62,16 +128,13 @@ export const register = async (req, res) => {
       password: hashedPassword,
       phone: phone || "",
       gender: gender || "Khác",
-      refreshTokens: [],
     });
-    await newUser.save();
 
-
-    newUser.refreshTokens = cleanupRefreshTokens(newUser.refreshTokens, MAX_REFRESH_TOKENS);
-
+    // Tạo token đăng nhập luôn
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken(newUser);
-    newUser.refreshTokens.push(refreshToken);
+    newUser.refreshTokens = [refreshToken];
+
     await newUser.save();
 
     return res.status(201).json({

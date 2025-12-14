@@ -50,19 +50,19 @@ const Login: React.FC<LoginProps> = ({
         password: formData.password,
       });
 
-      
+
       localStorage.setItem("accessToken", res.accessToken);
       if (res.refreshToken) {
         localStorage.setItem("refreshToken", res.refreshToken);
       }
       window.dispatchEvent(new Event("authChanged"));
 
-      
+
       socket.auth = { token: res.accessToken };
       socket.connect();
       socket.emit("joinUser", res.user.id);
 
-      
+
       await refreshUser();
 
       await refreshUser();
@@ -77,12 +77,6 @@ const Login: React.FC<LoginProps> = ({
     }
   };
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
       const token = credentialResponse.credential;
@@ -90,7 +84,6 @@ const Login: React.FC<LoginProps> = ({
 
       const { accessToken, refreshToken } = res;
 
-      
       localStorage.setItem("accessToken", accessToken);
       if (refreshToken) {
         localStorage.setItem("refreshToken", refreshToken);
@@ -100,11 +93,7 @@ const Login: React.FC<LoginProps> = ({
       window.dispatchEvent(new Event("authChanged"));
 
       handleSocketLogin(accessToken, res.user.id);
-
-      
       await refreshUser();
-
-      
       await refreshUser();
 
       onClose();
@@ -120,10 +109,29 @@ const Login: React.FC<LoginProps> = ({
     navigate("/quen-mat-khau");
   };
 
+  // Handle overlay click to close
+  const isMouseDownOnOverlay = React.useRef(false);
+
+  const handleOverlayMouseDown = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      isMouseDownOnOverlay.current = true;
+    } else {
+      isMouseDownOnOverlay.current = false;
+    }
+  };
+
+  const handleOverlayMouseUp = (e: React.MouseEvent) => {
+    if (isMouseDownOnOverlay.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    isMouseDownOnOverlay.current = false;
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={handleOverlayClick}
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
     >
       <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md relative transform transition-all">
         <button
@@ -133,7 +141,7 @@ const Login: React.FC<LoginProps> = ({
           <X className="w-5 h-5 text-gray-400" />
         </button>
 
-        {}
+        { }
         <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Đăng nhập</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

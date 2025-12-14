@@ -1,6 +1,23 @@
 import express from "express";
-import { register, login, refreshToken, logout, googleLogin, forgotPassword, resetPassword, } from "../controllers/authController.js";
-import { validateRegister, validateLogin, validateForgotPassword, validateResetPassword } from "../validators/authValidator.js";
+import {
+    register,
+    login,
+    refreshToken,
+    logout,
+    googleLogin,
+    forgotPassword,
+    resetPassword,
+    sendRegisterCode,
+    verifyRegisterCode
+} from "../controllers/authController.js";
+import {
+    validateSendRegisterCode,
+    validateVerifyRegisterCode,
+    validateRegisterFinal,
+    validateLogin,
+    validateForgotPassword,
+    validateResetPassword
+} from "../validators/authValidator.js";
 import { validateRequest } from "../middleware/validationMiddleware.js";
 
 const router = express.Router();
@@ -9,8 +26,10 @@ const router = express.Router();
  * Routes xác thực (Authentication)
  */
 
-// Đăng ký tài khoản
-router.post("/register", validateRegister, validateRequest, register);
+// Quy trình đăng ký mới (3 bước)
+router.post("/send-code", validateSendRegisterCode, validateRequest, sendRegisterCode);
+router.post("/verify-code", validateVerifyRegisterCode, validateRequest, verifyRegisterCode);
+router.post("/register", validateRegisterFinal, validateRequest, register);
 
 // Đăng nhập
 router.post("/login", validateLogin, validateRequest, login);

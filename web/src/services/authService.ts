@@ -19,7 +19,7 @@ export interface LoginResponse {
 }
 
 export interface RegisterPayload {
-  email: string;
+  registerToken?: string;
   name: string;
   password: string;
   phone?: string;
@@ -55,7 +55,17 @@ export const authService = {
     return res.data;
   },
 
-  async register(payload: RegisterPayload): Promise<RegisterResponse> {
+  async sendRegisterCode(email: string): Promise<{ message: string }> {
+    const res = await apiClient.post<{ message: string }>("/auth/send-code", { email });
+    return res.data;
+  },
+
+  async verifyRegisterCode(email: string, code: string): Promise<{ message: string; registerToken: string }> {
+    const res = await apiClient.post<{ message: string; registerToken: string }>("/auth/verify-code", { email, code });
+    return res.data;
+  },
+
+  async register(payload: RegisterPayload & { registerToken: string }): Promise<RegisterResponse> {
     const res = await apiClient.post<RegisterResponse>("/auth/register", payload);
     return res.data;
   },
