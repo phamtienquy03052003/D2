@@ -1,10 +1,14 @@
 import Notification from "../models/Notification.js";
 
-// Lấy tất cả thông báo của user
+
+/**
+ * Lấy danh sách thông báo của User (Tất cả)
+ */
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user.id })
       .populate("sender", "name email avatar")
+      .populate("post", "title slug")
       .sort({ createdAt: -1 })
     res.json(notifications);
   } catch (error) {
@@ -12,13 +16,17 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// Lấy 5 thông báo chưa đọc mới nhất của user
+
+/**
+ * Lấy danh sách thông báo chưa đọc (Unread)
+ */
 export const getUnreadNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user.id, isRead: false })
       .populate("sender", "name email avatar")
+      .populate("post", "title slug")
       .sort({ createdAt: -1 })
-      .limit(5); // chỉ lấy 5 cái mới nhất
+      .limit(5);
 
     res.json(notifications);
   } catch (error) {
@@ -26,7 +34,10 @@ export const getUnreadNotifications = async (req, res) => {
   }
 };
 
-// Đánh dấu đã đọc
+
+/**
+ * Đánh dấu toàn bộ thông báo là đã đọc
+ */
 export const markAsRead = async (req, res) => {
   try {
     await Notification.updateMany({ user: req.user.id, isRead: false }, { isRead: true });
@@ -36,6 +47,9 @@ export const markAsRead = async (req, res) => {
   }
 };
 
+/**
+ * Đánh dấu một thông báo cụ thể là đã đọc
+ */
 export const markOneAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -45,7 +59,7 @@ export const markOneAsRead = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy thông báo" });
     }
 
-    // kiểm tra có thuộc về user không
+
     if (notification.user.toString() !== req.user.id) {
       return res.status(403).json({ message: "Bạn không có quyền đánh dấu thông báo này" });
     }
@@ -59,6 +73,9 @@ export const markOneAsRead = async (req, res) => {
   }
 };
 
+/**
+ * Xóa một thông báo cụ thể
+ */
 export const deleteUserNotification = async (req, res) => {
   try {
     const { id } = req.params;
@@ -68,7 +85,7 @@ export const deleteUserNotification = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy thông báo" });
     }
 
-    // kiểm tra có thuộc về user không
+
     if (notification.user.toString() !== req.user.id) {
       return res.status(403).json({ message: "Bạn không có quyền xóa thông báo này" });
     }
@@ -82,7 +99,10 @@ export const deleteUserNotification = async (req, res) => {
 };
 
 
-// Lấy tất cả thông báo (admin)
+
+/**
+ * Lấy tất cả thông báo của hệ thống (Admin)
+ */
 export const adminGetAllNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find()
@@ -95,7 +115,10 @@ export const adminGetAllNotifications = async (req, res) => {
   }
 };
 
-// Xóa thông báo (admin)
+
+/**
+ * ADMIN: Xóa thông báo bất kỳ
+ */
 export const adminDeleteNotification = async (req, res) => {
   try {
     const notification = await Notification.findById(req.params.id);

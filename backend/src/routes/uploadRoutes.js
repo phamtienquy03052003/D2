@@ -5,10 +5,10 @@ import { updateUserAvatar, updateCommunityAvatar } from "../controllers/uploadCo
 
 const router = express.Router();
 
-// Upload avatar user
+
 router.post("/user/avatar", verifyToken, uploadUserAvatar.single("avatar"), updateUserAvatar);
 
-// Upload avatar community
+
 router.post("/community/avatar", verifyToken, uploadCommunityAvatar.single("avatar"), updateCommunityAvatar);
 
 export default router;

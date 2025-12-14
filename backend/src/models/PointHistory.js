@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema lịch sử điểm thưởng (Points History)
+ * - Ghi lại biến động số dư điểm (Cộng/Trừ) và lý do.
+ */
 const pointHistorySchema = new mongoose.Schema(
     {
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

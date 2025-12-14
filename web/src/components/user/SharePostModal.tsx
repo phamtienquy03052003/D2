@@ -25,7 +25,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
 
-    // Nếu bài viết gốc là bài share, thì lấy bài gốc của nó để share
+    
     const originalPost = post.sharedPost || post;
 
     useEffect(() => {
@@ -49,7 +49,7 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
             setLoading(true);
             const res = await postService.create({
                 title,
-                content: "", // Content rỗng vì chỉ share
+                content: "", 
                 communityId: selectedCommunity,
                 sharedPostId: originalPost._id,
             });
@@ -70,25 +70,25 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                    <h3 className="text-lg font-semibold text-gray-900">
+            <div className="bg-white dark:bg-[#1a1d25] rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                {}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                         Chia sẻ bài viết
                     </h3>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-gray-100 text-gray-500"
+                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* Body */}
+                {}
                 <div className="p-4 overflow-y-auto flex-1">
-                    {/* Chọn cộng đồng */}
+                    {}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Chọn cộng đồng
                         </label>
                         {fetching ? (
@@ -97,9 +97,9 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
                             <select
                                 value={selectedCommunity}
                                 onChange={(e) => setSelectedCommunity(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#272a33] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                                <option value="">-- Chọn cộng đồng --</option>
+                                <option value="">Chọn cộng đồng</option>
                                 {communities.map((c) => (
                                     <option key={c._id} value={c._id}>
                                         {c.name}
@@ -113,9 +113,9 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
                         )}
                     </div>
 
-                    {/* Tiêu đề mới */}
+                    {}
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Tiêu đề bài viết mới <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -123,17 +123,17 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Nhập tiêu đề..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#272a33] text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
 
-                    {/* Preview bài viết gốc */}
-                    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                        <div className="text-xs text-gray-500 mb-2">
+                    {}
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-[#1e212b]">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                             Bài viết gốc từ <strong>{originalPost.author?.name}</strong> •{" "}
                             {originalPost.community?.name || "Cộng đồng"}
                         </div>
-                        <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 line-clamp-2">
                             {originalPost.title}
                         </h4>
                         {originalPost.image && (
@@ -145,18 +145,18 @@ const SharePostModal: React.FC<SharePostModalProps> = ({
                         )}
                         {originalPost.content && (
                             <div
-                                className="text-xs text-gray-600 line-clamp-3 mt-2"
+                                className="text-xs text-gray-600 dark:text-gray-300 line-clamp-3 mt-2"
                                 dangerouslySetInnerHTML={{ __html: originalPost.content }}
                             />
                         )}
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="px-4 py-3 border-t border-gray-100 flex justify-end space-x-2">
+                {}
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 flex justify-end space-x-2">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     >
                         Hủy
                     </button>

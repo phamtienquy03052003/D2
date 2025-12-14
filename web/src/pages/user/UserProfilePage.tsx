@@ -16,13 +16,10 @@ import JoinedCommunitiesModal from "../../components/user/JoinedCommunitiesModal
 import {
   Flower2,
   MessageSquare,
-  UserPlus,
-  UserMinus,
-  Bell,
-  BellOff,
-  MessageCircle
 } from "lucide-react";
 import UserProfileHeader from "../../components/user/UserProfileHeader";
+import UserProfileRightSidebar from "../../components/user/ProfilePage/UserProfileRightSidebar";
+import ScrollableTabs from "../../components/common/ScrollableTabs";
 
 import type { User } from "../../types/User";
 import type { Post } from "../../types/Post";
@@ -30,7 +27,7 @@ import type { Comment } from "../../types/Comment";
 type TabType = "Bài đăng" | "Bình luận";
 
 const UserProfilePage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
@@ -44,30 +41,30 @@ const UserProfilePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [privateError, setPrivateError] = useState<string | null>(null);
 
-  // Modal states
+  
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [contributionModalOpen, setContributionModalOpen] = useState(false);
   const [contributionStats, setContributionStats] = useState({ posts: 0, comments: 0 });
   const [ownedCommunityCount, setOwnedCommunityCount] = useState(0);
 
-  // Follow & Notification state
+  
   const [isFollowing, setIsFollowing] = useState(false);
   const [hasNotifications, setHasNotifications] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
-  // Helper functions
+  
 
 
-  // 1. Fetch User Info
+  
   const fetchUserInfo = useCallback(async () => {
-    if (!id) return;
+    if (!slug) return;
     setIsUserLoading(true);
     setError(null);
     try {
-      const userData = await userService.getUserPublic(id);
+      const userData = await userService.getUserPublic(slug);
       setUser(userData);
 
-      // Check Privacy / Blocked immediately after user fetch
+      
       if (userData.isPrivate || userData.isBlocked) {
         setPrivateError("private");
       } else {
@@ -79,13 +76,13 @@ const UserProfilePage: React.FC = () => {
     } finally {
       setIsUserLoading(false);
     }
-  }, [id]);
+  }, [slug]);
 
-  // 2. Fetch Content (Posts/Comments)
+  
   const fetchContent = useCallback(async () => {
-    if (!id || !user) return; // Need user to be loaded to check privacy/block status first
+    if (!slug || slug === "undefined" || !user) return; 
 
-    // If private/blocked, don't fetch content
+    
     if (user.isPrivate || user.isBlocked) return;
 
     setIsContentLoading(true);
@@ -94,7 +91,7 @@ const UserProfilePage: React.FC = () => {
 
     try {
       if (activeTab === "Bài đăng") {
-        const resPosts = await postService.getByUser(id);
+        const resPosts = await postService.getByUser(slug);
         if (resPosts?.private) {
           setPrivateError("private");
         } else {
@@ -104,34 +101,34 @@ const UserProfilePage: React.FC = () => {
           setPosts(activePosts);
         }
       } else if (activeTab === "Bình luận") {
-        const resComments = await commentService.getByUser(id);
+        const resComments = await commentService.getByUser(slug);
         setComments(resComments);
       }
     } catch (err) {
       console.error("Lỗi khi tải bài viết/bình luận:", err);
-      // Don't set global error here to avoid hiding the profile
+      
     } finally {
       setIsContentLoading(false);
     }
-  }, [id, activeTab, user]);
+  }, [slug, activeTab, user]);
 
-  // Initial User Fetch
+  
   useEffect(() => {
     fetchUserInfo();
   }, [fetchUserInfo]);
 
-  // Content Fetch when Tab or User changes
+  
   useEffect(() => {
     fetchContent();
   }, [fetchContent]);
 
-  // Fetch follow status
+  
   useEffect(() => {
     const fetchFollowStatus = async () => {
-      if (!currentUser || !id || currentUser._id === id) return;
+      if (!currentUser || !slug || slug === "undefined" || currentUser._id === slug) return;
 
       try {
-        const status = await userService.getFollowStatus(id);
+        const status = await userService.getFollowStatus(slug);
         setIsFollowing(status.isFollowing);
         setHasNotifications(status.hasNotifications);
       } catch (error) {
@@ -140,43 +137,43 @@ const UserProfilePage: React.FC = () => {
     };
 
     fetchFollowStatus();
-  }, [id, currentUser]);
+  }, [slug, currentUser]);
 
-  // Fetch contribution stats
+  
   useEffect(() => {
-    if (!id) return;
+    if (!slug || slug === "undefined") return;
     const fetchStats = async () => {
       try {
         const [postsRes, commentsRes] = await Promise.all([
-          postService.getByUser(id),
-          commentService.getByUser(id)
+          postService.getByUser(slug),
+          commentService.getByUser(slug)
         ]);
 
-        // Check privacy for stats
-        // If user is private or blocked, we might want to show 0 or handle it
-        // The requirement says: "if private or blocked, they only see Contribution is 0"
+        
+        
+        
 
-        // Check if blocked/private from the main user fetch or the specific calls
-        // We can re-use the logic from fetchData or just check the response structure
-        // postService.getByUser returns { posts, private: boolean }
+        
+        
+        
 
         let postCount = 0;
         let commentCount = 0;
 
         if (!postsRes.private) {
-          // Filter active posts only
+          
           const activePosts = (postsRes.posts || []).filter(p => p.status === 'active');
           postCount = activePosts.length;
         }
 
-        // For comments, currently the service just returns array. 
-        // If the backend doesn't filter private users for comments, we might need to check user privacy first.
-        // However, based on the requirement "only calculate displayed posts and comments", 
-        // if the user is private/blocked, we shouldn't show anything.
+        
+        
+        
+        
 
-        // We can use the 'user' state if it's already loaded to check privacy
-        // But this effect might run before 'user' is set if we don't depend on it.
-        // Let's depend on 'user' state to be safe about privacy flag.
+        
+        
+        
 
         if (user && (user.isPrivate || user.isBlocked)) {
           setContributionStats({ posts: 0, comments: 0 });
@@ -200,21 +197,21 @@ const UserProfilePage: React.FC = () => {
     if (user) {
       fetchStats();
     }
-  }, [id, user]);
+  }, [slug, user]);
 
-  // Fetch owned communities count
+  
   useEffect(() => {
-    if (!id) return;
+    if (!slug || slug === "undefined") return;
     const fetchOwnedCommunities = async () => {
       try {
-        const res = await communityService.getUserPublicCommunities(id);
-        // Filter communities where creator is the current user (id)
-        // Check if creator is populated object or string ID
+        const res = await communityService.getUserPublicCommunities(slug);
+        
+        
         const owned = res.filter(c => {
           if (typeof c.creator === 'string') {
-            return c.creator === id;
+            return c.creator === slug;
           } else if (c.creator && typeof c.creator === 'object') {
-            return c.creator._id === id;
+            return c.creator._id === slug;
           }
           return false;
         });
@@ -224,7 +221,7 @@ const UserProfilePage: React.FC = () => {
       }
     };
     fetchOwnedCommunities();
-  }, [id]);
+  }, [slug]);
 
   const handleFollow = async () => {
     if (!user) return;
@@ -237,7 +234,7 @@ const UserProfilePage: React.FC = () => {
       } else {
         await userService.followUser(user._id);
         setIsFollowing(true);
-        setHasNotifications(true); // Default to true on follow
+        setHasNotifications(true); 
       }
     } catch (error) {
       console.error("Follow action failed:", error);
@@ -259,17 +256,17 @@ const UserProfilePage: React.FC = () => {
   const handleStartChat = async () => {
     if (!user || !currentUser) return;
     try {
-      // Create or get existing conversation
-      // Assuming conversationService is available or we navigate to chat page with user ID
-      // For now, let's navigate to chat page with a query param or just /chat
-      // If you have a specific route to start chat, use it.
-      // Example: navigate(`/chat?userId=${user._id}`);
+      
+      
+      
+      
+      
 
-      // Or if you want to use the API directly:
-      // const conv = await conversationService.createPrivateConversation([currentUser._id, user._id]);
-      // navigate(`/chat/${conv._id}`);
+      
+      
+      
 
-      // Since conversationService is not imported here, let's assume we navigate to chat
+      
       navigate(`/tin-nhan`, { state: { startChatWith: user._id } });
     } catch (error) {
       console.error("Start chat failed:", error);
@@ -277,17 +274,17 @@ const UserProfilePage: React.FC = () => {
   };
 
   const renderCommentItem = (comment: Comment) => (
-    <div key={comment._id} className="bg-white p-4 rounded-lg border border-gray-200 mb-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => {
-      const postId = typeof comment.post === 'string' ? comment.post : comment.post._id;
-      navigate(`/chi-tiet-bai-viet/${postId}`);
+    <div key={comment._id} className="bg-white dark:bg-[#1a1d25] p-4 rounded-lg border border-gray-200 dark:border-gray-800 mb-4 hover:bg-gray-50 dark:hover:bg-[#1e212b] transition-colors cursor-pointer" onClick={() => {
+      const postSlug = typeof comment.post === 'string' ? comment.post : (comment.post.slug || comment.post._id);
+      navigate(`/chi-tiet-bai-viet/${postSlug}`);
     }}>
       <div className="flex items-center gap-2 mb-2">
-        <MessageSquare size={16} className="text-gray-500" />
-        <span className="text-xs text-gray-500">
-          Đã bình luận trong <span className="font-semibold text-gray-900">bài viết</span> • {timeAgo(comment.createdAt)}
+        <MessageSquare size={16} className="text-gray-500 dark:text-gray-400" />
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Đã bình luận trong <span className="font-semibold text-gray-900 dark:text-gray-100">bài viết</span> • {timeAgo(comment.createdAt)}
         </span>
       </div>
-      <div className="text-sm text-gray-800 line-clamp-3">{comment.content}</div>
+      <div className="text-sm text-gray-800 dark:text-gray-200 line-clamp-3">{comment.content}</div>
     </div>
   );
 
@@ -307,47 +304,54 @@ const UserProfilePage: React.FC = () => {
     name: user.name,
     username: user.email,
     avatar: getUserAvatarUrl(user),
-    karma: user.totalPoints || 0, // Assuming totalPoints is available or default to 0
+    karma: user.totalPoints || 0, 
     contributions: contributionStats.posts + contributionStats.comments,
-    cakeDay: getAccountAge(user.createdAt), // Approximate "age"
+    cakeDay: getAccountAge(user.createdAt), 
     communityCount: user.communityCount || 0
   };
 
-  // Check if empty content to show specific message
+  
   const isEmpty = !privateError && !isContentLoading && ((activeTab === "Bài đăng" && posts.length === 0) || (activeTab === "Bình luận" && comments.length === 0));
   const showEmptyMessage = privateError || isEmpty;
 
   return (
     <UserLayout activeMenuItem="">
       <div className="w-full max-w-[1200px] mx-auto flex flex-col lg:flex-row gap-6 py-6">
-        {/* Left Column: Header, Tabs, Feed */}
+        {}
         <div className="flex-1 min-w-0">
-          {/* Header Info */}
+          {}
           <UserProfileHeader
             user={user}
             onAvatarClick={() => { }}
             onNameClick={() => { }}
           />
 
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6 overflow-x-auto">
-            <div className="flex space-x-1 min-w-max">
-              {(["Bài đăng", "Bình luận"] as TabType[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-3 text-sm font-medium cursor-pointer border-b-2 transition-colors ${activeTab === tab
-                    ? "border-black text-black bg-gray-100 rounded-t-md"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-md"
-                    }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+          {}
+          <div className="block lg:hidden mb-6">
+            <UserProfileRightSidebar
+              user={user}
+              currentUser={currentUser}
+              displayUser={displayUser}
+              ownedCommunityCount={ownedCommunityCount}
+              isFollowing={isFollowing}
+              hasNotifications={hasNotifications}
+              followLoading={followLoading}
+              onFollow={handleFollow}
+              onToggleNotification={handleToggleNotification}
+              onStartChat={handleStartChat}
+              onOpenContributionModal={() => setContributionModalOpen(true)}
+              onOpenActiveCommunities={() => setActiveCommunitiesModalOpen(true)}
+            />
           </div>
 
-          {/* Main Content Area */}
+          {}
+          <ScrollableTabs
+            tabs={["Bài đăng", "Bình luận"]}
+            activeTab={activeTab}
+            onTabClick={(tab) => setActiveTab(tab as TabType)}
+          />
+
+          {}
           <div>
             {error ? (
               <div className="text-center py-10 text-red-500">{error}</div>
@@ -357,10 +361,10 @@ const UserProfilePage: React.FC = () => {
               </div>
             ) : showEmptyMessage ? (
               <div className="py-10 text-center">
-                <div className="inline-flex justify-center items-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <div className="inline-flex justify-center items-center w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full mb-4">
                   <Flower2 size={32} className="text-gray-400" />
                 </div>
-                <p className="text-gray-500 font-medium">
+                <p className="text-gray-500 dark:text-gray-400 font-medium">
                   {activeTab === "Bài đăng"
                     ? `${displayUser.name} hiện chưa có bài đăng nào.`
                     : `${displayUser.name} hiện chưa có bình luận nào.`
@@ -373,7 +377,7 @@ const UserProfilePage: React.FC = () => {
                   <PostCard
                     key={post._id}
                     post={post}
-                    onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                    onNavigate={() => navigate(`/chi-tiet-bai-viet/${post.slug || post._id}`)}
                     onEdit={() => { }}
                     onDelete={() => { }}
                     onUnsave={() => { }}
@@ -385,94 +389,22 @@ const UserProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-full lg:w-80 flex-shrink-0">
-          <div className="bg-gray-100 rounded-3xl overflow-hidden sticky top-4">
-            <div className="p-4">
-              <h2 className="text-base font-bold text-gray-900 mb-2">{displayUser.name}</h2>
-
-              <div className="flex items-center gap-2 text-xs text-gray-500 mb-4">
-                <span>{user.followerCount || 0} người theo dõi</span>
-              </div>
-
-              {/* Actions: Follow, Chat, Notification */}
-              {currentUser && user && currentUser._id !== user._id && (
-                <div className="flex items-center gap-2 mb-6">
-                  <button
-                    onClick={handleFollow}
-                    disabled={followLoading}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFollowing
-                      ? "bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
-                  >
-                    {isFollowing ? (
-                      <>
-                        <UserMinus size={16} />
-                        Bỏ theo dõi
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={16} />
-                        Theo dõi
-                      </>
-                    )}
-                  </button>
-
-                  {isFollowing && (
-                    <button
-                      onClick={handleToggleNotification}
-                      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-colors flex-shrink-0 ${hasNotifications
-                        ? "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100"
-                        : "bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100"
-                        }`}
-                      title={hasNotifications ? "Tắt thông báo" : "Bật thông báo"}
-                    >
-                      {hasNotifications ? <Bell size={18} /> : <BellOff size={18} />}
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleStartChat}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300 transition-colors"
-                  >
-                    <MessageCircle size={16} />
-                    Nhắn tin
-                  </button>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-y-4 mb-6">
-                <div
-                  className="cursor-pointer"
-                  onClick={() => setContributionModalOpen(true)}
-                >
-                  <div className="text-sm font-bold text-gray-900">
-                    {displayUser.contributions}
-                  </div>
-                  <div className="text-xs text-gray-500">Lượt đóng góp</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{displayUser.cakeDay}</div>
-                  <div className="text-xs text-gray-500">Tuổi</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{ownedCommunityCount}</div>
-                  <div className="text-xs text-gray-500">Sở hữu</div>
-                </div>
-                <div
-                  className="cursor-pointer"
-                  onClick={() => setActiveCommunitiesModalOpen(true)}
-                >
-                  <div className="text-sm font-bold text-gray-900">{displayUser.communityCount}</div>
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    Đang hoạt động trong
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
+        {}
+        <div className="hidden lg:block w-full lg:w-80 flex-shrink-0">
+          <UserProfileRightSidebar
+            user={user}
+            currentUser={currentUser}
+            displayUser={displayUser}
+            ownedCommunityCount={ownedCommunityCount}
+            isFollowing={isFollowing}
+            hasNotifications={hasNotifications}
+            followLoading={followLoading}
+            onFollow={handleFollow}
+            onToggleNotification={handleToggleNotification}
+            onStartChat={handleStartChat}
+            onOpenContributionModal={() => setContributionModalOpen(true)}
+            onOpenActiveCommunities={() => setActiveCommunitiesModalOpen(true)}
+          />
         </div>
       </div>
 

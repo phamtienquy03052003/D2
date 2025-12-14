@@ -1,7 +1,7 @@
 import apiClient from "./apiClient";
 
 export const adminApi = {
-    getStats: () => apiClient.get("/admin/stats"),
+    getStats: (params?: any) => apiClient.get("/admin/stats", { params }),
     getUsers: (params: any) => apiClient.get("/admin/users", { params }),
     updateUserStatus: (id: string, isActive: boolean) =>
         apiClient.patch(`/admin/users/${id}/status`, { isActive }),

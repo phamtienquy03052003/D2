@@ -1,29 +1,37 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema cuộc hội thoại (Conversation/Group Chat)
+ */
 const conversationSchema = new mongoose.Schema(
   {
     isGroup: { type: Boolean, default: false },
     name: { type: String },
     avatar: { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
     members: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
+    // Thành viên chờ duyệt (nếu là nhóm kín)
     pendingMembers: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
     admins: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
     lastMessage: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",

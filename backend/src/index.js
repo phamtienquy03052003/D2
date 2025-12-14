@@ -4,7 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { createServer } from "http";
-import { Server } from "socket.io";
+
 import path from "path";
 import connectDB from "./config/db.js";
 
@@ -24,7 +24,7 @@ import modMailRoutes from "./routes/modMailRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import shopRoutes from "./routes/shopRoutes.js";
 
-import modMailSocket from "./socket/modMailSocket.js";
+import { initSocket } from "./socket/index.js";
 
 dotenv.config();
 connectDB();
@@ -32,21 +32,17 @@ connectDB();
 const app = express();
 const httpServer = createServer(app);
 
-const io = new Server(httpServer, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"],
-  },
-});
+
+const io = initSocket(httpServer);
 app.set("io", io);
 
-// Bảo mật & cấu hình cơ bản
+
 app.use(helmet());
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 app.use(morgan("dev"));
 
-// Cấu hình truy cập thư mục chứa ảnh upload
+
 app.use(
   "/uploads",
   express.static(path.join(process.cwd(), "src/assets/uploads"), {
@@ -56,7 +52,7 @@ app.use(
   })
 );
 
-// Routes
+
 app.get("/", (req, res) => {
   res.send("Backend API đang chạy...");
 });
@@ -77,30 +73,13 @@ app.use("/api", modMailRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/shop", shopRoutes);
 
-// Xử lý lỗi chung
+
 app.use((err, req, res, next) => {
   console.error("Error Handler:", err.stack);
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Lỗi máy chủ nội bộ",
   });
-});
-
-modMailSocket(io);
-
-// Socket.IO
-io.on("connection", (socket) => {
-  console.log("Người dùng kết nối:", socket.id);
-
-  socket.on("joinPost", (postId) => {
-    socket.join(postId);
-  });
-
-  socket.on("joinUser", (userId) => {
-    socket.join(userId);
-  });
-
-  socket.on("disconnect", () => console.log("Ngắt kết nối:", socket.id));
 });
 
 const PORT = process.env.PORT || 5000;

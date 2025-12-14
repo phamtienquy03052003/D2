@@ -19,7 +19,7 @@ const UserLayout: React.FC<Props> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-[#0f1117] text-gray-900 dark:text-white transition-colors duration-200">
       <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
@@ -39,8 +39,10 @@ const UserLayout: React.FC<Props> = ({
           />
         )}
 
-        <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 lg:ml-[calc(64px+16rem)]">
-          {children}
+        <div className="flex-1 lg:ml-50 min-w-0">
+          <div className="max-w-6xl mx-auto w-full px-4 py-5">
+            {children}
+          </div>
         </div>
       </div>
     </div>

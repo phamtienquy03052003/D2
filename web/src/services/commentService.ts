@@ -7,12 +7,12 @@ export const commentService = {
     return res.data as Comment[];
   },
 
-  async create(postId: string, payload: { content: string; parentComment?: string }): Promise<Comment | { restricted: boolean; message: string }> {
+  async create(postId: string, payload: { content: string; parentComment?: string } | FormData): Promise<Comment | { restricted: boolean; message: string }> {
     const res = await commentApi.create(postId, payload);
     return res.data;
   },
 
-  async update(commentId: string, payload: { content: string }): Promise<Comment> {
+  async update(commentId: string, payload: { content: string } | FormData): Promise<Comment> {
     const res = await commentApi.update(commentId, payload);
     return res.data as Comment;
   },
@@ -51,7 +51,7 @@ export const commentService = {
 
   async getRemovedForModeration(communityIds?: string[]): Promise<Comment[]> {
     const res = await commentApi.getRemovedForModeration(communityIds);
-    // Normalize if needed, similar to postService
+    
     if (Array.isArray(res.data)) return res.data as Comment[];
     if (Array.isArray(res.data?.data)) return res.data.data as Comment[];
     return [];

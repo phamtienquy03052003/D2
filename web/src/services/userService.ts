@@ -1,4 +1,4 @@
-//services/userService.ts
+
 import { userApi } from "../api/userApi";
 import type { User } from "../types/User";
 
@@ -8,9 +8,9 @@ export const userService = {
     return res.data as User;
   },
 
-  async updateProfile(payload: { name: string }): Promise<User> {
+  async updateProfile(payload: { name: string; socialLinks?: any }): Promise<User> {
     const res = await userApi.updateProfile(payload);
-    return res.data as User;
+    return res.data.user;
   },
 
   async updatePassword(payload: { oldPassword: string; newPassword: string; confirmPassword: string }) {
@@ -20,22 +20,22 @@ export const userService = {
 
   async updatePrivacy(isPrivate: boolean): Promise<User> {
     const res = await userApi.updatePrivacy(isPrivate);
-    return res.data as User;
+    return res.data.user;
   },
 
   async updatePhone(phone: string): Promise<User> {
     const res = await userApi.updatePhone(phone);
-    return res.data as User;
+    return res.data.user;
   },
 
   async updateGender(gender: string): Promise<User> {
     const res = await userApi.updateGender(gender);
-    return res.data as User;
+    return res.data.user;
   },
 
   async updateChatRequestPermission(permission: string): Promise<User> {
     const res = await userApi.updateChatRequestPermission(permission);
-    return res.data as User;
+    return res.data.user;
   },
 
   async getUserPublic(id: string): Promise<User> {
@@ -107,5 +107,7 @@ export const userService = {
     const res = await userApi.updateNameTag(nameTagId);
     return res.data;
   },
+
+
 };
 

@@ -9,13 +9,26 @@ import {
   safeVerifyRefreshToken
 } from "../utils/generateTokens.js";
 import { sendResetEmail } from "../utils/email.js";
+import slugify from "slugify";
+import { nanoid } from "nanoid";
 
-// Giới hạn số lượng refresh token mỗi user
+
 const MAX_REFRESH_TOKENS = parseInt(process.env.MAX_REFRESH_TOKENS || "5", 10);
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Đăng ký
+
+/**
+ * Đăng ký tài khoản người dùng mới
+ * 
+ * Quy trình:
+ * 1. Kiểm tra thông tin đầu vào (email, password).
+ * 2. Kiểm tra email đã tồn tại chưa.
+ * 3. Mã hóa (hash) mật khẩu bằng bcrypt.
+ * 4. Tạo slug (URL thân thiện) từ tên hoặc email.
+ * 5. Tạo Access Token và Refresh Token.
+ * 6. Lưu user vào DB.
+ */
 export const register = async (req, res) => {
   try {
     const { name, email, password, phone, gender } = req.body;
@@ -30,8 +43,21 @@ export const register = async (req, res) => {
     const salt = await bcrypt.genSalt(Number(process.env.BCRYPT_SALT_ROUNDS || 10));
     const hashedPassword = await bcrypt.hash(password, salt);
 
+
+
+    let nameToSlug = name || email.split('@')[0];
+    let baseSlug = slugify(nameToSlug, { lower: true, strict: true });
+    if (!baseSlug) baseSlug = "user";
+
+    let slug = baseSlug;
+    const existingSlug = await User.findOne({ slug });
+    if (existingSlug) {
+      slug = `${baseSlug}-${nanoid(6)}`;
+    }
+
     const newUser = new User({
       name: name || "",
+      slug,
       email,
       password: hashedPassword,
       phone: phone || "",
@@ -40,7 +66,7 @@ export const register = async (req, res) => {
     });
     await newUser.save();
 
-    // Cleanup token cũ và giới hạn số lượng
+
     newUser.refreshTokens = cleanupRefreshTokens(newUser.refreshTokens, MAX_REFRESH_TOKENS);
 
     const accessToken = generateAccessToken(newUser);
@@ -67,7 +93,17 @@ export const register = async (req, res) => {
 };
 
 
-// Đăng nhập bằng email
+
+/**
+ * Đăng nhập người dùng qua Email/Password
+ * 
+ * Quy trình:
+ * 1. Kiểm tra email và mật khẩu trong DB.
+ * 2. Kiểm tra tài khoản có bị khóa không.
+ * 3. So khớp mật khẩu hash.
+ * 4. Dọn dẹp các Refresh Token cũ (giới hạn số lượng thiết bị đăng nhập).
+ * 5. Tạo cặp Token mới và trả về cho Client.
+ */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -79,10 +115,16 @@ export const login = async (req, res) => {
     if (!user || !user.password)
       return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
 
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: `Tài khoản của bạn đã bị khóa, vui lòng liên hệ email: ${process.env.ADMIN_EMAIL || "phamtienquy03052003@gmail.com"} để được hỗ trợ.`,
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
 
-    // Cleanup token cũ và giới hạn số lượng
+
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
 
     const accessToken = generateAccessToken(user);
@@ -108,7 +150,17 @@ export const login = async (req, res) => {
   }
 };
 
-// Đăng nhập bằng Google
+
+/**
+ * Đăng nhập bằng Google (OAuth2)
+ * 
+ * Quy trình:
+ * 1. Xác thực Google Token gửi từ Client.
+ * 2. Lấy thông tin user (email, tên, ảnh) từ Google payload.
+ * 3. Tìm user trong DB theo email. Nếu chưa có -> Tạo mới.
+ * 4. Nếu đã có -> Kiểm tra trạng thái khóa.
+ * 5. Tạo cặp Token và trả về.
+ */
 export const googleLogin = async (req, res) => {
   try {
     const { token } = req.body;
@@ -125,16 +177,32 @@ export const googleLogin = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
+      let nameToSlug = name || email.split('@')[0];
+      let baseSlug = slugify(nameToSlug, { lower: true, strict: true });
+      if (!baseSlug) baseSlug = "user";
+
+      let slug = baseSlug;
+      if (existingSlug) {
+        slug = `${baseSlug}-${nanoid(6)}`;
+      }
+
       user = new User({
         email,
         name,
+        slug,
         googleId,
         avatar: picture,
       });
       await user.save();
     }
 
-    // Cleanup token cũ và giới hạn số lượng
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: `Tài khoản của bạn đã bị khóa, vui lòng liên hệ email: ${process.env.ADMIN_EMAIL || "phamtienquy03052003@gmail.com"} để được hỗ trợ.`,
+      });
+    }
+
+
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
 
     const accessToken = generateAccessToken(user);
@@ -160,18 +228,27 @@ export const googleLogin = async (req, res) => {
   }
 };
 
-// Làm mới token
+
+/**
+ * Cấp lại Access Token mới (Refresh Token Rotation)
+ * 
+ * Cơ chế:
+ * - Client gửi Refresh Token hiện tại.
+ * - Server kiểm tra tính hợp lệ và đối chiếu trong DB.
+ * - Nếu hợp lệ: Xóa token cũ, cấp cặp Token mới (Access + Refresh).
+ * - Nếu phát hiện token bị tái sử dụng (đã dùng rồi mà dùng lại) -> Xóa toàn bộ token của user để bảo mật.
+ */
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) return res.status(401).json({ message: "Thiếu refresh token" });
 
-    // Verify token - nếu hết hạn sẽ throw error
+
     let decoded;
     try {
       decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     } catch (verifyErr) {
-      // Token hết hạn hoặc không hợp lệ
+
       return res.status(403).json({ message: "Refresh token không hợp lệ hoặc hết hạn" });
     }
 
@@ -180,23 +257,23 @@ export const refreshToken = async (req, res) => {
       return res.status(403).json({ message: "Người dùng không tồn tại" });
     }
 
-    // Cleanup tất cả token hết hạn trước khi kiểm tra
+
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
 
-    // Kiểm tra token có trong danh sách hợp lệ
+
     if (!user.refreshTokens.includes(refreshToken)) {
-      await user.save(); // Lưu lại sau khi cleanup
+      await user.save();
       return res.status(403).json({ message: "Refresh token không hợp lệ" });
     }
 
     const newAccessToken = generateAccessToken(user);
     const newRefreshToken = generateRefreshToken(user);
 
-    // Xóa token cũ và thêm token mới
+
     user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
     user.refreshTokens.push(newRefreshToken);
 
-    // Đảm bảo không vượt quá giới hạn (trong trường hợp có nhiều token hợp lệ)
+
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
 
     await user.save();
@@ -211,23 +288,30 @@ export const refreshToken = async (req, res) => {
   }
 };
 
-// Đăng xuất
+
+/**
+ * Đăng xuất
+ * 
+ * Hành động:
+ * - Xóa Refresh Token hiện tại khỏi danh sách whitelist trong DB của user.
+ * - Giữ lại các token khác (đăng nhập ở thiết bị khác vẫn hoạt động).
+ */
 export const logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken) return res.status(400).json({ message: "Thiếu refresh token" });
 
-    // Sử dụng safe verify để tránh lỗi khi token hết hạn
+
     const decoded = safeVerifyRefreshToken(refreshToken);
     if (!decoded) {
-      // Token đã hết hạn, chỉ cần cleanup và trả về success
+
       return res.status(200).json({ message: "Đăng xuất thành công" });
     }
 
     const user = await User.findById(decoded.id);
     if (!user) return res.status(400).json({ message: "Người dùng không tồn tại" });
 
-    // Xóa token và cleanup token hết hạn
+
     user.refreshTokens = user.refreshTokens.filter((t) => t !== refreshToken);
     user.refreshTokens = cleanupRefreshTokens(user.refreshTokens, MAX_REFRESH_TOKENS);
     await user.save();
@@ -239,7 +323,15 @@ export const logout = async (req, res) => {
   }
 };
 
-// Quên mật khẩu
+
+/**
+ * Yêu cầu đặt lại mật khẩu (Quên mật khẩu)
+ * 
+ * Quy trình:
+ * 1. Tìm user theo email.
+ * 2. Tạo Reset Token (JWT ngắn hạn).
+ * 3. Gửi link đặt lại mật khẩu qua email cho user.
+ */
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -262,7 +354,15 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// Đặt lại mật khẩu
+
+/**
+ * Thực hiện đặt lại mật khẩu mới
+ * 
+ * Quy trình:
+ * 1. Xác thực Reset Token.
+ * 2. Tìm user tương ứng.
+ * 3. Hash mật khẩu mới và cập nhật vào DB.
+ */
 export const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;

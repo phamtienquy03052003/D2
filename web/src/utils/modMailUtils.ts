@@ -1,4 +1,4 @@
-// utils/modMailUtils.ts
+
 import type { ModMailConversation } from "../types/ModMail.ts";
 
 export function getModMailStatusLabel(status: ModMailConversation["status"]) {

@@ -9,11 +9,11 @@ export type NotificationType = "comment" | "reply" | "like" | "dislike" | "vote"
 
 export interface Notification {
   _id: string;
-  user: string; // id của người nhận
-  sender?: UserInfo | string | null; // có thể là populated User hoặc id
+  user: string; 
+  sender?: UserInfo | string | null; 
   type: NotificationType;
-  post?: string | null; // id bài viết
-  comment?: string | null; // id comment
+  post?: string | { _id: string; title: string; slug: string } | null; 
+  comment?: string | null; 
   message: string;
   isRead: boolean;
   createdAt: string;

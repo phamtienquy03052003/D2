@@ -27,11 +27,11 @@ export const postApi = {
   markEditedPostSeen: (id: string) => apiClient.post(`/posts/${id}/seen`),
   getPostHistory: (id: string) => apiClient.get(`/posts/${id}/history`),
 
-  // -------------------------
+  
   moderate: (id: string, data: { action: "approve" | "reject" }) =>
     apiClient.post(`/posts/${id}/moderate`, data),
   create: (data: any) => {
-    // Nếu data là FormData thì để axios tự set header
+    
     if (data instanceof FormData) {
       return apiClient.post("/posts", data, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -39,7 +39,14 @@ export const postApi = {
     }
     return apiClient.post("/posts", data);
   },
-  update: (id: string, data: any) => apiClient.put(`/posts/${id}`, data),
+  update: (id: string, data: any) => {
+    if (data instanceof FormData) {
+      return apiClient.put(`/posts/${id}`, data, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    }
+    return apiClient.put(`/posts/${id}`, data);
+  },
   delete: (id: string) => apiClient.delete(`/posts/${id}`),
   vote: (id: string, type: "upvote" | "downvote") =>
     apiClient.post(`/posts/${id}/vote`, { type }),
@@ -51,4 +58,5 @@ export const postApi = {
   getRecentPosts: (limit?: number) => apiClient.get(`/posts/recent/history${limit ? `?limit=${limit}` : ""}`),
   getLikedPosts: () => apiClient.get("/posts/liked/all"),
   getDislikedPosts: () => apiClient.get("/posts/disliked/all"),
+  toggleLock: (id: string) => apiClient.patch(`/posts/${id}/lock`),
 };

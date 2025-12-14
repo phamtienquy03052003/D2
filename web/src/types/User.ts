@@ -1,8 +1,8 @@
-// types/User.ts
 export interface User {
   _id: string;
   email: string;
   name: string;
+  slug?: string;
   avatar?: string;
   googleId?: string;
   role: "user" | "admin";
@@ -16,7 +16,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 
-  // Trường tính toán frontend
+  
   totalPoints?: number;
   communityCount?: number;
   level?: number;
@@ -24,4 +24,12 @@ export interface User {
   followerCount?: number;
   inventory?: string[];
   selectedNameTag?: string;
+  socialLinks?: {
+    facebook?: { url: string; displayName: string } | string;
+    youtube?: { url: string; displayName: string } | string;
+    tiktok?: { url: string; displayName: string } | string;
+    instagram?: { url: string; displayName: string } | string;
+    twitter?: { url: string; displayName: string } | string;
+    linkedin?: { url: string; displayName: string } | string;
+  };
 }

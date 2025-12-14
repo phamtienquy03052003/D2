@@ -44,6 +44,7 @@ export interface Report {
   targetType: "Community" | "Post" | "Comment";
   targetId: string;
   reason: string;
-  status: "Pending" | "Reviewed" | "Rejected";
+  description?: string; 
+  status: "Pending" | "Viewed" | "Resolved" | "Rejected";
   createdAt: string;
 }

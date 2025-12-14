@@ -7,7 +7,10 @@ import {
   ChevronUp,
   X,
   LogOut,
+  Users,
+  BarChart2,
 } from "lucide-react";
+
 import { communityService } from "../../services/communityService";
 
 interface ModSidebarProps {
@@ -25,6 +28,7 @@ interface ModMenuItem {
   path?: string;
   getPath?: (communityId: string) => string;
   requiresCommunityId?: boolean;
+  requiresOwner?: boolean;
 }
 
 const modMenuItems: ModMenuItem[] = [
@@ -39,6 +43,18 @@ const modMenuItems: ModMenuItem[] = [
     label: "Hộp thư quản trị",
     icon: <Inbox className="w-5 h-5" />,
     path: "/quan-tri/hop-thu-quan-tri",
+  },
+  {
+    id: "moderators",
+    label: "Kiểm duyệt viên",
+    icon: <Users className="w-5 h-5" />,
+    path: "/quan-tri/kiem-duyet-vien",
+  },
+  {
+    id: "stats",
+    label: "Thống kê",
+    icon: <BarChart2 className="w-5 h-5" />,
+    path: "/quan-tri/thong-ke",
   }
 ];
 
@@ -54,34 +70,26 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
     communityId ?? null
   );
   const [isDropdownOpen, setIsDropdownOpen] = useState(true);
-  const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
-  const [hasModerationAccess, setHasModerationAccess] = useState<boolean>(
-    Boolean(communityId)
-  );
+
+
 
   useEffect(() => {
     if (communityId) {
       setResolvedCommunityId(communityId);
-      setHasModerationAccess(true);
       return;
     }
 
     const loadCommunities = async () => {
-      setIsLoadingCommunities(true);
       try {
         const created = await communityService.getManagedCommunities();
+
         if (created?.length) {
           setResolvedCommunityId(created[0]._id);
-          setHasModerationAccess(true);
         } else {
           setResolvedCommunityId(null);
-          setHasModerationAccess(false);
         }
       } catch (error) {
         console.error("Không thể tải danh sách cộng đồng quản trị:", error);
-        setHasModerationAccess(false);
-      } finally {
-        setIsLoadingCommunities(false);
       }
     };
 
@@ -112,7 +120,9 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
     const baseClasses =
       "w-full flex items-center px-3 py-2 text-left rounded text-sm transition-colors";
     const activeClasses =
-      activeItem === item.id ? "bg-blue-50 text-blue-700 font-semibold" : "text-gray-700 hover:bg-gray-100";
+      activeItem === item.id
+        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-semibold"
+        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800";
     const disabledClasses = disabled ? "opacity-50 cursor-not-allowed hover:bg-transparent" : "";
 
     return (
@@ -122,7 +132,7 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
         disabled={disabled}
         className={`${baseClasses} ${activeClasses} ${disabledClasses}`}
       >
-        <div className="mr-3 text-gray-600">{item.icon}</div>
+        <div className="mr-3 text-gray-600 dark:text-gray-400">{item.icon}</div>
         <span>{item.label}</span>
       </button>
     );
@@ -138,23 +148,23 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-20 left-0 h-full w-64 bg-white border-r border-gray-300 z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto
+        className={`fixed top-20 left-0 h-full w-64 bg-white dark:bg-[#1a1d25] border-r border-gray-300 dark:border-gray-800 z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto
         lg:fixed lg:translate-x-0 lg:block lg:top-20 lg:h-[calc(100vh-4rem)]
         [scrollbar-width:thin] [scrollbar-color:transparent_transparent] hover:[scrollbar-color:rgba(0,0,0,0.2)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-400/50
         ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
       >
-        <div className="flex items-center justify-between p-3 border-b border-gray-200 lg:hidden">
-          <span className="font-semibold text-gray-900">Quản trị</span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100">
-            <X className="w-5 h-5 text-gray-500" />
+        <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-800 lg:hidden">
+          <span className="font-semibold text-gray-900 dark:text-gray-100">Quản trị</span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         <div className="p-3 space-y-4">
-          {/* Exit Button */}
+          {}
           <button
             onClick={() => navigate("/")}
-            className="w-full flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
+            className="w-full flex items-center gap-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Thoát</span>
@@ -163,7 +173,7 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
           <div className="border-t pt-4">
             <button
               onClick={() => setIsDropdownOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide hover:bg-gray-100 rounded"
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
             >
               <span>Bảng điều khiển</span>
               {isDropdownOpen ? (
@@ -179,12 +189,6 @@ const ModSidebar: React.FC<ModSidebarProps> = ({
               </div>
             )}
           </div>
-
-          {!hasModerationAccess && !isLoadingCommunities && (
-            <div className="text-sm text-gray-500 px-3 py-2 bg-gray-50 border border-dashed border-gray-200 rounded">
-              Bạn cần tạo ít nhất một cộng đồng để truy cập các công cụ này.
-            </div>
-          )}
         </div>
       </aside>
     </>

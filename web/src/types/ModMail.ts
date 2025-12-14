@@ -12,11 +12,18 @@ export interface CommunityBasic {
 
 export interface ModMailConversation {
   _id: string;
-  community: string | CommunityBasic; // Có thể là ID hoặc object khi populated
+  community: string | CommunityBasic; 
   starter: UserBasic;
   subject: string;
   status: "open" | "pending" | "closed";
   assignee: UserBasic | null;
+
+  
+  priority: "low" | "normal" | "high" | "urgent";
+  archived: boolean;
+  tags: string[];
+  lastMessagePreview: string;
+
   unreadCountForMods: number;
   unreadCountForUser: number;
   createdAt: string;
@@ -34,4 +41,21 @@ export interface ModMailMessage {
     filename: string;
   }[];
   createdAt: string;
+}
+
+export interface ModMailStats {
+  total: number;
+  open: number;
+  pending: number;
+  closed: number;
+  unread: number;
+  unassigned: number;
+}
+
+export interface ModMailFilters {
+  query?: string;
+  status?: "open" | "pending" | "closed" | "all";
+  assignee?: "all" | "unassigned" | "me" | string;
+  priority?: "low" | "normal" | "high" | "urgent";
+  archived?: boolean;
 }

@@ -7,6 +7,8 @@ const postHistorySchema = new mongoose.Schema(
         content: { type: String },
         image: { type: String },
         images: [{ type: String }],
+        video: { type: String },
+        linkUrl: { type: String },
         editedAt: { type: Date, default: Date.now },
     },
     { timestamps: true }

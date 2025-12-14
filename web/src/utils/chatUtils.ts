@@ -2,7 +2,7 @@ import type { ConversationType, MessageType, UserType } from "../types/chat";
 
 export const getOtherUser = (conversation: ConversationType, currentUserId: string): UserType | undefined => {
   if (conversation.isGroup) return undefined;
-  return conversation.members.find((m) => m._id !== currentUserId);
+  return conversation.members.find((m) => m._id !== currentUserId) || conversation.pendingMembers?.find((m) => m._id !== currentUserId);
 };
 
 export const countUnreadMessages = (conversation: ConversationType): number => {

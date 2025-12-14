@@ -1,8 +1,8 @@
-// src/pages/user/ConversationPage.tsx
+
 import React, { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useChat } from "../../context/ChatContext";
-import ChatWindow from "../../components/user/ChatWindow";
+import ChatWindow from "../../components/user/ChatPage/ChatWindow";
 import { conversationService } from "../../services/conversationService";
 import { useAuth } from "../../context/AuthContext";
 import UserLayout from "../../UserLayout";

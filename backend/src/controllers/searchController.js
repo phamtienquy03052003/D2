@@ -2,6 +2,11 @@ import Post from "../models/Post.js";
 import User from "../models/User.js";
 import Community from "../models/Community.js";
 
+/**
+ * Tìm kiếm toàn văn (Search Fulltext)
+ * - Tìm kiếm trên Bài viết, Cộng đồng, và Người dùng.
+ * - Trả về tối đa 10 kết quả cho mỗi loại.
+ */
 export const fullTextSearch = async (req, res) => {
   try {
     const { q } = req.query;

@@ -2,7 +2,7 @@ import apiClient from "./apiClient";
 
 export const userApi = {
   getMe: () => apiClient.get("/users/me"),
-  updateProfile: (data: { name: string }) => apiClient.put("/users/me", data),
+  updateProfile: (data: { name: string; socialLinks?: any }) => apiClient.put("/users/me", data),
   updatePassword: (data: {
     oldPassword: string;
     newPassword: string;
@@ -27,4 +27,5 @@ export const userApi = {
   getXPHistory: () => apiClient.get("/users/me/xp-history"),
   getMyFollowers: () => apiClient.get("/users/me/followers"),
   updateNameTag: (nameTagId: string | null) => apiClient.put("/users/me/nametag", { nameTagId }),
+
 };

@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import Post from "../models/Post.js";
 import Notification from "../models/Notification.js";
 import UserPoint from "../models/UserPoint.js";
@@ -8,8 +8,15 @@ import User from "../models/User.js";
 import Community from "../models/Community.js";
 import Follow from "../models/Follow.js";
 import PostHistory from "../models/PostHistory.js";
+import ModeratorLog from "../models/ModeratorLog.js";
+import ModerationService from "../services/ModerationService.js";
 
-// Common aggregation stages for fetching posts with comment count
+import SocketService from "../services/SocketService.js";
+import slugify from "slugify";
+import { nanoid } from "nanoid";
+
+
+
 const getCommonAggregationStages = () => [
   {
     $lookup: {
@@ -60,13 +67,30 @@ const getCommonAggregationStages = () => [
   }
 ];
 
-// Tạo mới bài đăng
+
+/**
+ * Tạo bài viết mới
+ * - Kiểm tra nội dung (Moderation Service).
+ * - Kiểm tra cộng đồng (nếu đăng vào Group).
+ * - Kiểm tra hạn chế (Mute) của user.
+ * - Xử lý upload ảnh/video.
+ * - Tạo slug.
+ * - Tính điểm thưởng cho bài viết đầu tiên trong ngày.
+ * - Bắn Socket thông báo.
+ */
 export const createPost = async (req, res) => {
   try {
-    let { title, content, image, communityId, sharedPostId } = req.body;
+    let { title, content, image, communityId, sharedPostId, linkUrl } = req.body;
+
+
+    const moderationResult = await ModerationService.checkContent((title || "") + " " + (content || ""));
+    if (moderationResult.flagged) {
+      return res.status(400).json({ message: moderationResult.reason });
+    }
+
     if (communityId === "null" || communityId === "undefined" || communityId === "") communityId = null;
 
-    const io = req.app.get("io");
+    if (communityId === "null" || communityId === "undefined" || communityId === "") communityId = null;
 
     let community = null;
     if (communityId) {
@@ -74,7 +98,7 @@ export const createPost = async (req, res) => {
       if (!community) return res.status(404).json({ message: "Không tìm thấy cộng đồng" });
       if (community.status === "removed") return res.status(410).json({ message: "Cộng đồng đã bị xóa" });
 
-      // Check restriction
+
       const restriction = community.restrictedUsers.find(
         (r) => r.user.toString() === req.user.id
       );
@@ -92,29 +116,44 @@ export const createPost = async (req, res) => {
     const postStatus = community && community.postApprovalRequired ? "pending" : "active";
 
     let imageUrls = [];
-    if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map(file => `/uploads/posts/${file.filename}`);
+    let videoUrl = null;
+
+
+    if (req.files && req.files.video && req.files.video[0]) {
+      videoUrl = `/uploads/videos/${req.files.video[0].filename}`;
+    }
+
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      imageUrls = req.files.images.map(file => `/uploads/posts/${file.filename}`);
     } else if (image) {
       imageUrls = [image];
     }
 
+    let baseSlug = slugify(title, { lower: true, strict: true });
+    if (!baseSlug) baseSlug = "post";
+
+    const slug = `${baseSlug}-${nanoid(6)}`;
+
     const newPost = new Post({
       title,
+      slug,
       content,
       image: imageUrls.length > 0 ? imageUrls[0] : null,
       images: imageUrls,
+      video: videoUrl,
       community: community ? community._id : null,
       author: req.user.id,
       status: postStatus,
       approvedAt: postStatus === "active" ? new Date() : null,
       isEdited: false,
       sharedPost: sharedPostId || null,
+      linkUrl: linkUrl || null,
     });
 
     await newPost.save();
 
     const populatedPost = await newPost.populate([
-      { path: "author", select: "name avatar email level selectedNameTag" },
+      { path: "author", select: "name avatar email level selectedNameTag slug" },
       {
         path: "sharedPost",
         populate: [
@@ -126,7 +165,7 @@ export const createPost = async (req, res) => {
 
     if (postStatus === "active") {
       const room = communityId ? communityId : "global";
-      io.to(room).emit("newPost", populatedPost);
+      SocketService.emitNewPost(room, populatedPost);
 
       if (communityId) {
         if (community && community.notificationSubscribers && community.notificationSubscribers.length > 0) {
@@ -146,7 +185,7 @@ export const createPost = async (req, res) => {
             await notification.save();
 
             const populatedNotif = await notification.populate("sender", "name avatar");
-            io.to(subId.toString()).emit("newNotification", populatedNotif);
+            SocketService.emitNewNotification(subId.toString(), populatedNotif);
           }
         }
       } else {
@@ -162,7 +201,7 @@ export const createPost = async (req, res) => {
           await notification.save();
 
           const populatedNotif = await notification.populate("sender", "name avatar");
-          io.to(follow.follower.toString()).emit("newNotification", populatedNotif);
+          SocketService.emitNewNotification(follow.follower.toString(), populatedNotif);
         }
       }
     }
@@ -180,7 +219,7 @@ export const createPost = async (req, res) => {
 
     let bonusPoint = 0;
     if (!hadPointToday) {
-      const pointsToAdd = 1;
+      const pointsToAdd = 100;
       const history = new PointHistory({
         user: req.user.id,
         amount: pointsToAdd,
@@ -198,7 +237,7 @@ export const createPost = async (req, res) => {
       userPoint.totalPoints += pointsToAdd;
       await userPoint.save();
 
-      io.to(req.user.id).emit("pointAdded", {
+      SocketService.emitPointAdded(req.user.id, {
         user: req.user.id,
         points: pointsToAdd,
         reason: "Đăng bài đầu tiên trong ngày",
@@ -220,15 +259,47 @@ export const createPost = async (req, res) => {
   }
 };
 
-// Lấy tất cả bài đăng
+
+/**
+ * Lấy danh sách bài viết (New Feed)
+ * - Hỗ trợ lọc theo Cộng đồng.
+ * - Hỗ trợ Sắp xếp: Mới nhất (New), Phổ biến (Hot), Tốt nhất (Best), Top.
+ * - Ưu tiên hiển thị bài viết từ người mình theo dõi hoặc cộng đồng tham gia.
+ */
 export const getAllPosts = async (req, res) => {
   try {
     const filter = { status: "active" };
-    if (req.query.community) filter.community = new mongoose.Types.ObjectId(req.query.community);
+    if (req.query.community) {
+      if (mongoose.Types.ObjectId.isValid(req.query.community)) {
+        filter.community = new mongoose.Types.ObjectId(req.query.community);
+      } else {
+        const comm = await Community.findOne({ slug: req.query.community });
+        if (comm) filter.community = comm._id;
+        else return res.json([]);
+      }
+    }
+
+
+    let prioritizedCommunityIds = [];
+    let prioritizedUserIds = [];
+
+    if (req.user && req.user.id) {
+
+      const joinedCommunities = await Community.find({
+        members: req.user.id,
+        status: "active"
+      }).select("_id");
+      prioritizedCommunityIds = joinedCommunities.map(c => c._id);
+
+
+      const following = await Follow.find({ follower: req.user.id }).select("following");
+      prioritizedUserIds = following.map(f => f.following);
+    }
+
 
     const sortOption = req.query.sort || "new";
 
-    // Common pipeline stages for lookups and projections
+
     const commonStages = [
       {
         $lookup: {
@@ -236,7 +307,7 @@ export const getAllPosts = async (req, res) => {
           let: { postId: "$_id" },
           pipeline: [
             { $match: { $expr: { $and: [{ $eq: ["$post", "$$postId"] }, { $eq: ["$status", "active"] }] } } },
-            { $project: { _id: 1 } } // Only need _id to count
+            { $project: { _id: 1 } }
           ],
           as: "comments"
         }
@@ -246,12 +317,31 @@ export const getAllPosts = async (req, res) => {
           commentCount: { $size: "$comments" },
           upvoteCount: { $size: "$upvotes" },
           downvoteCount: { $size: "$downvotes" },
-          voteScore: { $subtract: [{ $size: "$upvotes" }, { $size: "$downvotes" }] }
+          voteScore: { $subtract: [{ $size: "$upvotes" }, { $size: "$downvotes" }] },
+
+
+          isPrioritized: {
+            $cond: {
+              if: {
+                $or: [
+                  { $in: ["$author", prioritizedUserIds] },
+                  { $in: ["$community", prioritizedCommunityIds] }
+                ]
+              },
+              then: 1,
+              else: 0
+            }
+          }
         }
       },
       { $lookup: { from: "users", localField: "author", foreignField: "_id", as: "author" } },
       { $lookup: { from: "communities", localField: "community", foreignField: "_id", as: "community" } },
       { $unwind: "$author" },
+      {
+        $addFields: {
+
+        }
+      },
       { $unwind: { path: "$community", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
@@ -274,7 +364,7 @@ export const getAllPosts = async (req, res) => {
           "author.password": 0,
           "author.savedPosts": 0,
           "author.recentPosts": 0,
-          "comments": 0 // Remove comments array to reduce payload
+          "comments": 0
         }
       }
     ];
@@ -285,7 +375,7 @@ export const getAllPosts = async (req, res) => {
       pipeline = [
         ...pipeline,
         ...commonStages,
-        { $sort: { voteScore: -1, createdAt: -1 } }
+        { $sort: { isPrioritized: -1, voteScore: -1, createdAt: -1 } }
       ];
     } else if (sortOption === "hot") {
       pipeline = [
@@ -296,7 +386,7 @@ export const getAllPosts = async (req, res) => {
             hotScore: { $add: ["$voteScore", "$commentCount"] }
           }
         },
-        { $sort: { hotScore: -1, createdAt: -1 } }
+        { $sort: { isPrioritized: -1, hotScore: -1, createdAt: -1 } }
       ];
     } else if (sortOption === "best") {
       pipeline = [
@@ -314,10 +404,10 @@ export const getAllPosts = async (req, res) => {
             }
           }
         },
-        { $sort: { ratio: -1, totalVotes: -1, createdAt: -1 } }
+        { $sort: { isPrioritized: -1, ratio: -1, totalVotes: -1, createdAt: -1 } }
       ];
     } else {
-      // Default: new
+
       pipeline = [
         ...pipeline,
         ...commonStages,
@@ -326,6 +416,9 @@ export const getAllPosts = async (req, res) => {
     }
 
     const posts = await Post.aggregate(pipeline);
+    if (posts.length > 0) {
+      console.log("getAllPosts first post author:", posts[0].author?.name);
+    }
     res.json(posts);
   } catch (err) {
     console.error("Lỗi getAllPosts:", err);
@@ -333,16 +426,27 @@ export const getAllPosts = async (req, res) => {
   }
 };
 
-// Lấy bài đăng theo id
+
+/**
+ * Lấy chi tiết bài viết
+ * - Cập nhật lịch sử xem bài (Recent User Posts).
+ */
 export const getPostById = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id)
-      .populate("author", "name email avatar level selectedNameTag")
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id };
+    } else {
+      query = { slug: id };
+    }
+    const post = await Post.findOne(query)
+      .populate("author", "name email avatar level selectedNameTag slug")
       .populate("community", "name avatar")
       .populate({
         path: "sharedPost",
         populate: [
-          { path: "author", select: "name avatar level selectedNameTag" },
+          { path: "author", select: "name avatar level selectedNameTag slug" },
           { path: "community", select: "name avatar" }
         ]
       });
@@ -366,16 +470,26 @@ export const getPostById = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài viết của 1 user
+
+/**
+ * Lấy danh sách bài viết của một người dùng (Profile)
+ * - Kiểm tra quyền riêng tư của user đó.
+ * - Nếu xem của chính mình -> Hiện cả bài Waiting/Rejected.
+ */
 export const getPostsByUser = async (req, res) => {
   try {
-    const targetUserId = req.params.userId;
+    const targetUserIdOrSlug = req.params.userId;
     const viewerId = req.user ? req.user.id : null;
 
-    const targetUser = await User.findById(targetUserId).select("isPrivate");
+    let userQuery = {};
+    if (mongoose.Types.ObjectId.isValid(targetUserIdOrSlug)) userQuery = { _id: targetUserIdOrSlug };
+    else userQuery = { slug: targetUserIdOrSlug };
+
+    const targetUser = await User.findOne(userQuery).select("isPrivate");
     if (!targetUser) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
+    const targetUserId = targetUser._id;
 
     const viewer = viewerId ? await User.findById(viewerId).select("role") : null;
     const viewerIsOwner = viewerId && viewerId === targetUserId;
@@ -413,10 +527,22 @@ export const getPostsByUser = async (req, res) => {
   }
 };
 
-// Cập nhật bài đăng
+
+/**
+ * Cập nhật bài viết
+ * - Kiểm tra nội dung (Moderation).
+ * - Lưu lịch sử chỉnh sửa (PostHistory).
+ * - Cập nhật ảnh/video.
+ * - Gán trạng thái "edited_pending" nếu cần duyệt lại.
+ */
 export const updatePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) query = { _id: id };
+    else query = { slug: id };
+
+    const post = await Post.findOne(query);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
     if (post.status === "removed" || post.status === "rejected")
       return res.status(410).json({ message: "Bài đăng không khả dụng" });
@@ -424,33 +550,96 @@ export const updatePost = async (req, res) => {
     if (post.author.toString() !== req.user.id)
       return res.status(403).json({ message: "Không có quyền sửa bài này" });
 
-    const { title, content, image } = req.body;
+    let { title, content, linkUrl, existingImages, existingVideo } = req.body;
 
-    // Save current version to history BEFORE updating
+
+    const textToCheck = (title || post.title) + " " + (content || "");
+    const moderationResult = await ModerationService.checkContent(textToCheck);
+    if (moderationResult.flagged) {
+      return res.status(400).json({ message: moderationResult.reason });
+    }
+
+
     const history = new PostHistory({
       post: post._id,
       title: post.title,
       content: post.content,
       image: post.image,
       images: post.images,
+      video: post.video,
+      linkUrl: post.linkUrl,
     });
     await history.save();
 
-    post.title = title || post.title;
-    post.content = content || post.content;
-    post.image = image || post.image;
+
+    if (title) {
+      post.title = title;
+
+
+      let slug = slugify(title, { lower: true, strict: true });
+      if (!slug) slug = "post";
+
+      const existingSlug = await Post.findOne({ slug, _id: { $ne: post._id } });
+      if (existingSlug) {
+        slug = `${slug}-${nanoid(6)}`;
+      }
+      post.slug = slug;
+    }
+    if (content !== undefined) post.content = content;
+    if (linkUrl !== undefined) post.linkUrl = linkUrl;
+
+
+
+    let currentImages = [];
+    if (existingImages) {
+      if (Array.isArray(existingImages)) {
+        currentImages = existingImages;
+      } else {
+        currentImages = [existingImages];
+      }
+    }
+
+
+    let newImageUrls = [];
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      newImageUrls = req.files.images.map(file => `/uploads/posts/${file.filename}`);
+    }
+
+
+    if (existingImages !== undefined || newImageUrls.length > 0) {
+      const finalImages = [...currentImages, ...newImageUrls];
+      post.images = finalImages;
+      post.image = finalImages.length > 0 ? finalImages[0] : null;
+    }
+
+
+    if (req.files && req.files.video && req.files.video[0]) {
+
+      post.video = `/uploads/videos/${req.files.video[0].filename}`;
+    } else if (existingVideo !== undefined) {
+
+      if (existingVideo === "" || existingVideo === null) {
+
+        post.video = null;
+      } else {
+
+        post.video = existingVideo;
+      }
+    }
 
     post.isEdited = true;
     post.editedStatus = "edited_pending";
 
     await post.save();
 
-    const io = req.app.get("io");
-    io.to(post._id.toString()).emit("updatePost", {
+    SocketService.emitUpdatePost(post._id, {
       _id: post._id,
       title: post.title,
       content: post.content,
       image: post.image,
+      images: post.images,
+      video: post.video,
+      linkUrl: post.linkUrl,
       isEdited: true,
       updatedAt: post.updatedAt
     });
@@ -461,10 +650,21 @@ export const updatePost = async (req, res) => {
   }
 };
 
-// Xóa bài đăng (USER TỰ XÓA)
+
+/**
+ * Xóa bài viết (Soft delete)
+ * - Chỉ tác giả mới được xóa.
+ * - Đánh dấu status='removed'.
+ * - Xóa các comment liên quan khỏi hiển thị.
+ */
 export const deletePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) query = { _id: id };
+    else query = { slug: id };
+
+    const post = await Post.findOne(query);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
     if (post.status === "removed" || post.status === "rejected")
       return res.status(410).json({ message: "Bài đăng không khả dụng" });
@@ -477,6 +677,12 @@ export const deletePost = async (req, res) => {
     post.removedBy = req.user.id;
     post.removedAt = removalTime;
     await post.save();
+
+
+
+
+
+
 
     await Comment.updateMany(
       { post: post._id },
@@ -494,11 +700,21 @@ export const deletePost = async (req, res) => {
   }
 };
 
-// Upvote / Downvote
+
+/**
+ * Vote bài viết (Upvote/Downvote)
+ * - Cập nhật điểm uy tín (Vote Score).
+ * - Thưởng điểm cho tác giả nếu đạt cột mốc (ví dụ: 1000 votes).
+ */
 export const votePost = async (req, res) => {
   try {
     const { type } = req.body;
-    const post = await Post.findById(req.params.id);
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) query = { _id: id };
+    else query = { slug: id };
+
+    const post = await Post.findOne(query);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
     if (post.status === "removed")
       return res.status(410).json({ message: "Bài đăng đã bị xóa" });
@@ -525,8 +741,56 @@ export const votePost = async (req, res) => {
 
     await post.save();
 
-    const io = req.app.get("io");
-    io.to(post._id.toString()).emit("updatePostVote", {
+
+    const voteScore = post.upvotes.length - post.downvotes.length;
+
+
+    if (voteScore >= 1000) {
+      const log10 = Math.log10(voteScore);
+
+      if (Number.isInteger(log10)) {
+        const milestone = voteScore;
+        const pointsToAdd = milestone / 20;
+
+
+        const alreadyRewarded = await PointHistory.findOne({
+          user: post.author,
+          relatedId: post._id,
+          reason: `Đạt cột mốc ${milestone} vote`,
+          type: "add"
+        });
+
+        if (!alreadyRewarded) {
+
+          const history = new PointHistory({
+            user: post.author,
+            amount: pointsToAdd,
+            reason: `Đạt cột mốc ${milestone} vote`,
+            type: "add",
+            relatedId: post._id,
+            onModel: "Post"
+          });
+          await history.save();
+
+          let userPoint = await UserPoint.findOne({ user: post.author });
+          if (!userPoint) {
+            userPoint = new UserPoint({ user: post.author, totalPoints: 0 });
+          }
+          userPoint.totalPoints += pointsToAdd;
+          await userPoint.save();
+
+
+          SocketService.emitPointAdded(post.author.toString(), {
+            user: post.author,
+            points: pointsToAdd,
+            reason: `Bài viết đạt ${milestone} vote`,
+            totalPoints: userPoint.totalPoints
+          });
+        }
+      }
+    }
+
+    SocketService.emitUpdatePostVote(post._id, {
       _id: post._id,
       upvotes: post.upvotes,
       downvotes: post.downvotes,
@@ -538,7 +802,10 @@ export const votePost = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài đã bị xóa
+
+/**
+ * Lấy danh sách bài viết đã bị xóa (Moderation)
+ */
 export const getRemovedPostsForModeration = async (req, res) => {
   try {
     const communitiesParam = req.query.communities || "";
@@ -564,7 +831,10 @@ export const getRemovedPostsForModeration = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài đã chỉnh sửa
+
+/**
+ * Lấy danh sách bài viết đã chỉnh sửa (Moderation)
+ */
 export const getEditedPostsForModeration = async (req, res) => {
   try {
     const { status } = req.query;
@@ -595,7 +865,10 @@ export const getEditedPostsForModeration = async (req, res) => {
   }
 };
 
-// Đánh dấu bài viết đã chỉnh sửa là đã xem
+
+/**
+ * Đánh dấu bài viết đã chỉnh sửa là đã xem (dành cho Mod)
+ */
 export const markEditedPostSeen = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -610,17 +883,52 @@ export const markEditedPostSeen = async (req, res) => {
   }
 };
 
-// Lấy lịch sử chỉnh sửa của bài viết
+
+/**
+ * Lấy lịch sử chỉnh sửa của bài viết
+ */
 export const getPostHistory = async (req, res) => {
   try {
-    const history = await PostHistory.find({ post: req.params.id })
-      .sort({ createdAt: -1 });
+    const { id } = req.params;
+    const history = await PostHistory.find({ post: id }).sort({ createdAt: -1 });
     res.json(history);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+
+/**
+ * Khóa/Mở khóa bình luận của bài viết
+ */
+export const toggleLock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) query = { _id: id };
+    else query = { slug: id };
+
+    const post = await Post.findOne(query);
+    if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
+
+
+    if (post.author.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ message: "Không có quyền thực hiện thao tác này" });
+    }
+
+    post.isLocked = !post.isLocked;
+    await post.save();
+
+    res.json({ message: post.isLocked ? "Đã khóa bình luận" : "Đã mở khóa bình luận", isLocked: post.isLocked });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+/**
+ * Lưu bài viết vào danh sách đã lưu (Saved Posts)
+ */
 export const savePost = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -640,7 +948,10 @@ export const savePost = async (req, res) => {
   }
 };
 
-// Bỏ lưu bài viết
+
+/**
+ * Bỏ lưu bài viết
+ */
 export const unsavePost = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -656,7 +967,10 @@ export const unsavePost = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài đã lưu
+
+/**
+ * Lấy danh sách bài viết đã lưu
+ */
 export const getSavedPosts = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("savedPosts");
@@ -665,9 +979,9 @@ export const getSavedPosts = async (req, res) => {
     const posts = await Post.aggregate([
       { $match: { _id: { $in: user.savedPosts }, status: "active" } },
       ...getCommonAggregationStages(),
-      // Sort by order in savedPosts array is tricky with aggregation, 
-      // but usually saved posts are shown by added time (which is roughly createdAt if we don't track save time separately)
-      // or we can just sort by createdAt desc for now.
+
+
+
       { $sort: { createdAt: -1 } }
     ]);
 
@@ -677,7 +991,10 @@ export const getSavedPosts = async (req, res) => {
   }
 };
 
-// Lấy danh sách bài đã thích
+
+/**
+ * Lấy danh sách bài viết đã Like (Upvoted)
+ */
 export const getLikedPosts = async (req, res) => {
   try {
     const posts = await Post.aggregate([
@@ -692,6 +1009,9 @@ export const getLikedPosts = async (req, res) => {
   }
 };
 
+/**
+ * Lấy danh sách bài viết đã Dislike (Downvoted)
+ */
 export const getDislikedPosts = async (req, res) => {
   try {
     const posts = await Post.aggregate([
@@ -706,33 +1026,46 @@ export const getDislikedPosts = async (req, res) => {
   }
 };
 
-// Admin xóa bài viết
+
+
+/**
+ * ADMIN: Xóa vĩnh viễn bài viết (Hard delete)
+ */
 export const adminDeletePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
 
-    post.status = "removed";
-    post.removedBy = req.user.id;
-    post.removedAt = new Date();
-    await post.save();
 
-    await Comment.updateMany(
-      { post: post._id },
-      { status: "removed", removedBy: req.user.id, removedAt: new Date() }
-    );
+    await Comment.deleteMany({ post: post._id });
 
-    res.json({ message: "Đã xóa bài viết (Admin)" });
+
+    await Post.findByIdAndDelete(post._id);
+
+
+    await ModeratorLog.create({
+      actor: req.user.id,
+      action: "remove_post",
+      target: post._id,
+      targetModel: "Post",
+      community: post.community,
+      details: "Admin permanently deleted post and its comments"
+    });
+
+    res.json({ message: "Đã xóa vĩnh viễn bài viết và bình luận (Admin)" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Lấy danh sách bài chờ duyệt
+
+/**
+ * Lấy danh sách bài viết đang chờ duyệt (Pending)
+ */
 export const getPendingPostsForModeration = async (req, res) => {
   try {
     const posts = await Post.find({ status: "pending" })
-      .populate("author", "name email avatar level selectedNameTag")
+      .populate("author", "name email avatar level selectedNameTag selectedAvatarFrame")
       .populate("community", "name avatar")
       .sort({ createdAt: -1 });
     res.json(posts);
@@ -741,10 +1074,13 @@ export const getPendingPostsForModeration = async (req, res) => {
   }
 };
 
-// Duyệt hoặc từ chối bài viết
+
+/**
+ * Duyệt hoặc Từ chối bài viết (Approve/Reject)
+ */
 export const moderatePost = async (req, res) => {
   try {
-    const { action } = req.body; // 'approve' or 'reject'
+    const { action } = req.body;
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: "Không tìm thấy bài đăng" });
 
@@ -753,18 +1089,33 @@ export const moderatePost = async (req, res) => {
       post.approvedAt = new Date();
     } else if (action === "reject") {
       post.status = "rejected";
+      post.removedBy = req.user.id;
+      post.removedAt = new Date();
     } else {
       return res.status(400).json({ message: "Hành động không hợp lệ" });
     }
 
     await post.save();
+
+
+    await ModeratorLog.create({
+      actor: req.user.id,
+      action: action === "approve" ? "approve_post" : "reject_post",
+      target: post._id,
+      targetModel: "Post",
+      community: post.community,
+    });
+
     res.json({ message: `Đã ${action === "approve" ? "duyệt" : "từ chối"} bài viết`, post });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Lấy lịch sử xem gần đây
+
+/**
+ * Lấy danh sách bài viết truy cập gần đây của User
+ */
 export const getRecentPosts = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 0;
@@ -772,17 +1123,17 @@ export const getRecentPosts = async (req, res) => {
     const user = await User.findById(req.user.id).select("recentPosts");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // recentPosts is an array of IDs. We want to preserve order.
-    // However, $in does not guarantee order.
-    // But for now, let's just fetch them. If order is critical, we might need to map them back.
-    // Or we can rely on the fact that we just want "recent" posts, so sorting by createdAt might be "okay" 
-    // but technically recentPosts is sorted by view time (pushed to front).
 
-    // Better approach for preserving order:
-    // 1. Get full list of IDs
-    // 2. Slice if limit exists (optimization)
-    // 3. Aggregate
-    // 4. Sort result in JS based on ID array order
+
+
+
+
+
+
+
+
+
+
 
     let recentPostIds = user.recentPosts;
     if (limit > 0) {
@@ -794,7 +1145,7 @@ export const getRecentPosts = async (req, res) => {
       ...getCommonAggregationStages()
     ]);
 
-    // Sort posts based on the order in recentPostIds
+
     const postsMap = new Map(posts.map(p => [p._id.toString(), p]));
     const sortedPosts = recentPostIds
       .map(id => postsMap.get(id.toString()))

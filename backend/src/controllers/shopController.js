@@ -1,128 +1,136 @@
 import User from "../models/User.js";
 import UserPoint from "../models/UserPoint.js";
 import PointHistory from "../models/PointHistory.js";
-import { addXP } from "../utils/levelUtils.js";
+import ShopItem from "../models/ShopItem.js";
+import { addXP } from "../utils/level.js";
 
-const XP_PACKAGES = {
-    small: { cost: 10, xp: 10 },
-    medium: { cost: 95, xp: 100 },
-    large: { cost: 900, xp: 1000 },
-    xlarge: { cost: 8500, xp: 10000 }
-};
-
-export const NAME_TAGS = {
-    "nametag_vip": { id: "nametag_vip", name: "VIP", cost: 500, style: "vip" },
-    "nametag_rich": { id: "nametag_rich", name: "Đại Gia", cost: 1000, style: "rich" },
-    "nametag_cool": { id: "nametag_cool", name: "Dân Chơi", cost: 300, style: "cool" },
-    "nametag_master": { id: "nametag_master", name: "Bậc Thầy", cost: 2000, style: "master" },
-};
-
+/**
+ * Lấy danh sách vật phẩm trong cửa hàng
+ * - Phân loại: Gói XP, Thẻ tên, Khác.
+ */
 export const getShopItems = async (req, res) => {
     try {
+        const items = await ShopItem.find({}).sort({ sortOrder: 1 });
+
+        const xpPackages = items.filter(i => i.type === 'xp_package');
+        const nameTags = items.filter(i => i.type === 'name_tag');
+        const others = items.filter(i => !['xp_package', 'name_tag'].includes(i.type));
+
         res.json({
-            xpPackages: XP_PACKAGES,
-            nameTags: NAME_TAGS
+            xpPackages,
+            nameTags,
+            others
         });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
 
-export const buyNameTag = async (req, res) => {
+/**
+ * Mua vật phẩm
+ * - Kiểm tra số dư điểm.
+ * - Xử lý mua Gói XP (cộng trực tiếp vào Level).
+ * - Xử lý mua Thẻ tên/Vật phẩm khác (thêm vào Inventory).
+ * - Lưu lịch sử giao dịch.
+ */
+export const buyItem = async (req, res) => {
     try {
         const { itemId } = req.body;
         const userId = req.user.id;
 
-        if (!NAME_TAGS[itemId]) {
-            return res.status(400).json({ message: "Vật phẩm không hợp lệ" });
+        const item = await ShopItem.findById(itemId);
+        if (!item || !item.isActive) {
+            return res.status(400).json({ message: "Vật phẩm không tồn tại hoặc đã ngừng bán" });
         }
 
-        const item = NAME_TAGS[itemId];
         const userPoint = await UserPoint.findOne({ user: userId });
         const user = await User.findById(userId);
 
-        if (!userPoint || userPoint.totalPoints < item.cost) {
+        if (!userPoint || userPoint.totalPoints < item.price) {
             return res.status(400).json({ message: "Không đủ điểm để mua vật phẩm này" });
         }
 
-        if (user.inventory && user.inventory.includes(itemId)) {
-            return res.status(400).json({ message: "Bạn đã sở hữu vật phẩm này rồi" });
+
+        if (item.type === 'xp_package') {
+
+            let xpAmount = 0;
+            try {
+
+                const value = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
+                xpAmount = Number(value.xp || value);
+            } catch (e) {
+                xpAmount = Number(item.value);
+            }
+
+            if (!xpAmount || isNaN(xpAmount)) {
+                return res.status(500).json({ message: "Cấu hình gói XP không hợp lệ" });
+            }
+
+
+            userPoint.totalPoints -= item.price;
+            await userPoint.save();
+
+
+            await PointHistory.create({
+                user: userId,
+                amount: item.price,
+                reason: `Mua gói ${item.name}`,
+                type: "subtract",
+                onModel: "User",
+                relatedId: userId
+            });
+
+
+            const io = req.app.get("io");
+            const { user: updatedUser } = await addXP(userId, xpAmount, "Đổi từ điểm thưởng", null, null, io);
+
+            return res.json({
+                message: "Mua thành công",
+                newPoints: userPoint.totalPoints,
+                newXP: updatedUser.experience,
+                newLevel: updatedUser.level,
+                type: 'xp'
+            });
+
+        } else {
+
+            if (user.inventory && user.inventory.includes(item._id.toString())) {
+                return res.status(400).json({ message: "Bạn đã sở hữu vật phẩm này rồi" });
+            }
+
+
+            userPoint.totalPoints -= item.price;
+            await userPoint.save();
+
+
+            if (!user.inventory) user.inventory = [];
+            user.inventory.push(item._id.toString());
+            await user.save();
+
+
+            await PointHistory.create({
+                user: userId,
+                amount: item.price,
+                reason: `Mua ${item.name}`,
+                type: "subtract",
+                onModel: "User",
+                relatedId: userId
+            });
+
+            return res.json({
+                message: "Mua thành công",
+                newPoints: userPoint.totalPoints,
+                inventory: user.inventory,
+                type: 'item'
+            });
         }
 
-        // Trừ điểm
-        userPoint.totalPoints -= item.cost;
-        await userPoint.save();
-
-        // Thêm vào inventory
-        if (!user.inventory) user.inventory = [];
-        user.inventory.push(itemId);
-        await user.save();
-
-        // Lưu lịch sử trừ điểm
-        await PointHistory.create({
-            user: userId,
-            amount: item.cost,
-            reason: `Mua thẻ tên ${item.name}`,
-            type: "subtract",
-            onModel: "User",
-            relatedId: userId
-        });
-
-        res.json({
-            message: "Mua thành công",
-            newPoints: userPoint.totalPoints,
-            inventory: user.inventory
-        });
-
     } catch (err) {
-        console.error("Buy Name Tag error:", err);
+        console.error("Buy Item error:", err);
         res.status(500).json({ message: err.message });
     }
 };
 
-export const buyXP = async (req, res) => {
-    try {
-        const { packageId } = req.body;
-        const userId = req.user.id;
-        const io = req.app.get("io");
 
-        if (!XP_PACKAGES[packageId]) {
-            return res.status(400).json({ message: "Gói không hợp lệ" });
-        }
-
-        const pkg = XP_PACKAGES[packageId];
-
-        const userPoint = await UserPoint.findOne({ user: userId });
-        if (!userPoint || userPoint.totalPoints < pkg.cost) {
-            return res.status(400).json({ message: "Không đủ điểm để mua gói này" });
-        }
-
-        // Trừ điểm
-        userPoint.totalPoints -= pkg.cost;
-        await userPoint.save();
-
-        // Lưu lịch sử trừ điểm
-        await PointHistory.create({
-            user: userId,
-            amount: pkg.cost,
-            reason: `Mua ${pkg.xp} điểm kinh nghiệm`,
-            type: "subtract",
-            onModel: "User",
-            relatedId: userId
-        });
-
-        // Cộng XP bằng hàm tiện ích (tự động xử lý level up và lưu lịch sử XP)
-        const { user } = await addXP(userId, pkg.xp, "Đổi từ điểm thưởng", null, null, io);
-
-        res.json({
-            message: "Mua thành công",
-            newPoints: userPoint.totalPoints,
-            newXP: user.experience,
-            newLevel: user.level
-        });
-
-    } catch (err) {
-        console.error("Buy XP error:", err);
-        res.status(500).json({ message: err.message });
-    }
-};
+export const buyNameTag = buyItem;
+export const buyXP = buyItem;

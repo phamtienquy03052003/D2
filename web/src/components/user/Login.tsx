@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { X, Eye, EyeOff } from "lucide-react";
-import { useAuth, socket } from "../../context/AuthContext";
+import { toast } from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
+import { socket } from "../../socket";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-hot-toast";
+
 import { authService } from "../../services/authService";
 
 interface LoginProps {
@@ -48,19 +50,24 @@ const Login: React.FC<LoginProps> = ({
         password: formData.password,
       });
 
-      // 🔥 Chỉ lưu token
+      
       localStorage.setItem("accessToken", res.accessToken);
+      if (res.refreshToken) {
+        localStorage.setItem("refreshToken", res.refreshToken);
+      }
       window.dispatchEvent(new Event("authChanged"));
 
-      // 🔥 Login socket
+      
       socket.auth = { token: res.accessToken };
       socket.connect();
       socket.emit("joinUser", res.user.id);
 
-      // 🔥 Không set user trực tiếp, dùng API để lấy user mới nhất
+      
       await refreshUser();
 
-      toast.success("Đăng nhập thành công!");
+      await refreshUser();
+
+      onClose();
       onClose();
     } catch (error: any) {
       console.error("Login error:", error);
@@ -83,7 +90,7 @@ const Login: React.FC<LoginProps> = ({
 
       const { accessToken, refreshToken } = res;
 
-      // 🔥 Chỉ lưu token
+      
       localStorage.setItem("accessToken", accessToken);
       if (refreshToken) {
         localStorage.setItem("refreshToken", refreshToken);
@@ -94,14 +101,17 @@ const Login: React.FC<LoginProps> = ({
 
       handleSocketLogin(accessToken, res.user.id);
 
-      // 🔥 Lấy user từ API
+      
       await refreshUser();
 
-      toast.success("Đăng nhập Google thành công!");
+      
+      await refreshUser();
+
       onClose();
-    } catch (error) {
+      onClose();
+    } catch (error: any) {
       console.error("Google login error:", error);
-      toast.error("Lỗi khi đăng nhập bằng Google");
+      toast.error(error.response?.data?.message || "Đăng nhập Google thất bại");
     }
   };
 
@@ -115,18 +125,18 @@ const Login: React.FC<LoginProps> = ({
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md relative transform transition-all">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md relative transform transition-all">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-10"
+          className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors z-10"
         >
           <X className="w-5 h-5 text-gray-400" />
         </button>
 
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Đăng nhập</h2>
-          <p className="text-sm text-gray-600 mt-1">
+        {}
+        <div className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Đăng nhập</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Đăng nhập bằng email để tiếp tục.
           </p>
         </div>
@@ -144,10 +154,10 @@ const Login: React.FC<LoginProps> = ({
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-gray-300 dark:border-gray-700" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">HOẶC</span>
+              <span className="px-2 bg-white dark:!bg-gray-900 text-gray-500 dark:text-gray-400 z-10">HOẶC</span>
             </div>
           </div>
 
@@ -158,7 +168,7 @@ const Login: React.FC<LoginProps> = ({
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all text-sm"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 focus:border-blue-500 dark:text-white focus:outline-none transition-all text-sm"
                 placeholder="Email"
                 disabled={isLoading}
                 required
@@ -171,7 +181,7 @@ const Login: React.FC<LoginProps> = ({
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded bg-gray-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all text-sm"
+                className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-800 focus:bg-white dark:focus:bg-gray-900 focus:border-blue-500 dark:text-white focus:outline-none transition-all text-sm"
                 placeholder="Mật khẩu"
                 disabled={isLoading}
                 required
@@ -193,7 +203,7 @@ const Login: React.FC<LoginProps> = ({
             <button
               type="submit"
               disabled={isLoading || !formData.email || !formData.password}
-              className="w-full py-3 bg-orange-500 text-white rounded-full font-bold text-sm hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-cyan-500 text-white rounded-full font-bold text-sm hover:bg-cyan-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center justify-center">
@@ -216,7 +226,7 @@ const Login: React.FC<LoginProps> = ({
           </div>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Chưa có tài khoản?{" "}
               <button
                 onClick={onSwitchToRegister}

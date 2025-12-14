@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
-import RightSidebar from "../../components/user/RightSidebar";
+
 import { authService } from "../../services/authService";
 import { Lock } from "lucide-react";
 
@@ -31,12 +31,12 @@ const ResetPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
+    <div className="min-h-screen bg-white dark:bg-[#0f1117] flex flex-col">
+      {}
       <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
       <div className="flex flex-1">
-        {/* Sidebar */}
+        {}
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
@@ -44,15 +44,15 @@ const ResetPassword: React.FC = () => {
           onItemClick={setActiveMenuItem}
         />
 
-        {/* Main Content */}
+        {}
         <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 lg:ml-[calc(64px+16rem)]">
           <div className="flex gap-6">
             <div className="flex-1 max-w-3xl mx-auto">
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
-                <h2 className="text-2xl font-semibold text-gray-900 text-center mb-2">
+              <div className="bg-white dark:bg-[#1a1d25] rounded-xl shadow-md border border-gray-200 dark:border-gray-800 p-8">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white text-center mb-2">
                   Đặt lại mật khẩu
                 </h2>
-                <p className="text-center text-gray-600 mb-6 text-sm">
+                <p className="text-center text-gray-600 dark:text-gray-400 mb-6 text-sm">
                   Nhập mật khẩu mới cho tài khoản của bạn.
                 </p>
 
@@ -66,7 +66,7 @@ const ResetPassword: React.FC = () => {
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       disabled={loading}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:border-blue-500 focus:outline-none transition-all text-sm"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-[#272a33] dark:text-white focus:bg-white dark:focus:bg-[#272a33] focus:border-blue-500 focus:outline-none transition-all text-sm"
                     />
                   </div>
 
@@ -80,13 +80,13 @@ const ResetPassword: React.FC = () => {
                 </form>
 
                 {message && (
-                  <p className="text-center mt-4 text-sm text-gray-700">
+                  <p className="text-center mt-4 text-sm text-gray-700 dark:text-gray-300">
                     {message}
                   </p>
                 )}
 
                 <div className="mt-6 text-center">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     Quay lại{" "}
                     <button
                       onClick={() => navigate("/login")}
@@ -98,9 +98,6 @@ const ResetPassword: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Right Sidebar */}
-            <RightSidebar />
           </div>
         </main>
       </div>

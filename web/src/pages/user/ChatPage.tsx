@@ -1,11 +1,12 @@
-// src/pages/user/ChatPage.tsx
+
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import ChatSidebar from "../../components/user/ChatSidebar";
-import ChatWindow from "../../components/user/ChatWindow";
+import ChatSidebar from "../../components/user/ChatPage/ChatSidebar";
+import ChatWindow from "../../components/user/ChatPage/ChatWindow";
 import { useChat } from "../../context/ChatContext";
 import { conversationService } from "../../services/conversationService";
-import { useAuth, socket } from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
+import { socket } from "../../socket";
 import UserLayout from "../../UserLayout";
 import type { ConversationType, MessageType } from "../../types/chat";
 
@@ -25,20 +26,20 @@ const ChatPage: React.FC = () => {
         const data = await conversationService.getUserConversations(currentUserId);
         setConversations(data);
 
-        // Handle startChatWith logic
+        
         if (startChatWith) {
-          // Check if conversation already exists
+          
           const existingConv = data.find(c =>
             !c.isGroup && c.members.some(m => m._id === startChatWith)
           ) || data.find(c =>
-            // Check pending members too if needed, though getUserConversations usually returns them
+            
             !c.isGroup && c.pendingMembers?.some(m => m._id === startChatWith)
           );
 
           if (existingConv) {
             setCurrentConversation(existingConv);
           } else {
-            // Create new private conversation
+            
             try {
               const newConv = await conversationService.createPrivate([currentUserId, startChatWith]);
               setConversations(prev => {
@@ -50,9 +51,9 @@ const ChatPage: React.FC = () => {
               console.error("Failed to create conversation:", createErr);
             }
           }
-          // Clear state to prevent re-running on refresh if desired, 
-          // but react-router state persists. We might want to clear it or just let it be.
-          // For now, let's leave it.
+          
+          
+          
         }
 
       } catch (err) {
@@ -62,20 +63,20 @@ const ChatPage: React.FC = () => {
     load();
   }, [currentUserId, startChatWith]);
 
-  // Socket listeners
+  
   useEffect(() => {
 
     const handleNewMessage = (message: MessageType) => {
-      // Update messages if current conversation
+      
       if (currentConversation?._id === message.conversationId) {
         setMessages((prev) => {
-          // Prevent duplicates (e.g. from optimistic update or double event)
+          
           if (prev.some(m => m._id === message._id)) return prev;
           return [...prev, message];
         });
       }
 
-      // Update conversations list (lastMessage, unread, reorder)
+      
       setConversations((prev) => {
         const updated = prev.map((c) => {
           if (c._id === message.conversationId) {
@@ -103,7 +104,7 @@ const ChatPage: React.FC = () => {
     const handleConversationAccepted = (conv: ConversationType) => {
       setConversations((prev) => {
         const updated = prev.map(c => c._id === conv._id ? conv : c);
-        // If this is the current conversation, update it too
+        
         if (currentConversation?._id === conv._id) {
           setCurrentConversation(conv);
         }
@@ -162,19 +163,24 @@ const ChatPage: React.FC = () => {
   return (
     <UserLayout activeMenuItem="chat">
       <div className="h-[calc(96vh-6rem)]">
-        <div className="flex h-full gap-4 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-          <ChatSidebar
-            conversations={conversations}
-            onSelect={handleSelect}
-            currentUserId={currentUserId || ""}
-            onAddConversation={handleAddConversation}
-          />
-          <ChatWindow
-            conversation={currentConversation}
-            messages={messages}
-            setMessages={setMessages}
-            onUpdateConversation={handleAddConversation}
-          />
+        <div className="flex h-full gap-4 bg-white dark:bg-[#1a1d25] rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-800">
+          <div className={`${currentConversation ? 'hidden md:flex' : 'flex'} w-full md:w-auto h-full`}>
+            <ChatSidebar
+              conversations={conversations}
+              onSelect={handleSelect}
+              currentUserId={currentUserId || ""}
+              onAddConversation={handleAddConversation}
+            />
+          </div>
+          <div className={`${currentConversation ? 'flex' : 'hidden md:flex'} flex-1 h-full`}>
+            <ChatWindow
+              conversation={currentConversation}
+              messages={messages}
+              setMessages={setMessages}
+              onUpdateConversation={handleAddConversation}
+              onBack={() => setCurrentConversation(null)}
+            />
+          </div>
         </div>
       </div>
     </UserLayout>

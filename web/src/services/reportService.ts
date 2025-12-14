@@ -1,4 +1,4 @@
-// src/services/reportService.ts
+
 import { reportApi } from "../api/reportApi";
 import type { Report, TargetPost, TargetComment } from "../types/Report";
 
@@ -6,6 +6,7 @@ export const createReport = async (payload: {
   targetType: "Community" | "Post" | "Comment";
   targetId: string;
   reason: string;
+  description?: string;
 }) => {
   const res = await reportApi.createReport(payload);
   return res.data;
@@ -48,5 +49,13 @@ export const updateReportStatus = async (
   status: "Pending" | "Reviewed" | "Rejected"
 ) => {
   const res = await reportApi.updateReportStatus(reportId, status);
+  return res.data;
+};
+
+export const updateOwnerReportStatus = async (
+  reportId: string,
+  status: "Pending" | "Viewed" | "Resolved" | "Rejected"
+) => {
+  const res = await reportApi.updateOwnerReportStatus(reportId, status);
   return res.data;
 };

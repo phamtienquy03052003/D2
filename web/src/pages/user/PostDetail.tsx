@@ -1,20 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import UserLayout from "../../UserLayout";
-import RightSidebar from "../../components/user/RightSidebar";
 import EditPostModal from "../../components/user/EditPostModal";
 import ConfirmModal from "../../components/user/ConfirmModal";
-import CommentSection from "../../components/user/CommentSection";
+import CommentSection from "../../components/user/PostDetail/CommentSection";
 import { postService } from "../../services/postService";
 import PostCard from "../../components/user/PostCard";
 import type { Post } from "../../types/Post";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const PostDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
 
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
 
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -22,8 +23,9 @@ const PostDetail: React.FC = () => {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        const data = await postService.getById(id!);
+        const data = await postService.getById(slug!);
         setPost(data);
+        setIsLocked(data.isLocked || false);
       } catch (err) {
         console.error("Không thể tải bài viết:", err);
       } finally {
@@ -31,12 +33,16 @@ const PostDetail: React.FC = () => {
       }
     };
     fetchPost();
-  }, [id]);
+  }, [slug]);
+
+  const handleLockToggle = (newLockStatus: boolean) => {
+    setIsLocked(newLockStatus);
+  };
 
   const handleVote = async (postId: string, type: "upvote" | "downvote") => {
     try {
       await postService.vote(postId, type);
-      const data = await postService.getById(id!);
+      const data = await postService.getById(slug!);
       setPost(data);
     } catch (err) {
       console.error("Vote failed:", err);
@@ -47,7 +53,7 @@ const PostDetail: React.FC = () => {
     setEditingPost(post);
   };
 
-  const handleSaveEdit = async (data: { title: string; content: string }) => {
+  const handleSaveEdit = async (data: any) => {
     if (!editingPost) return;
     try {
       await postService.update(editingPost._id, data);
@@ -87,36 +93,42 @@ const PostDetail: React.FC = () => {
 
   return (
     <UserLayout activeMenuItem="home">
-      <div className="flex gap-6">
-        <div className="flex-1 max-w-3xl">
-          {post ? (
-            <>
+      <div className="flex-1 max-w-3xl">
+        {post ? (
+          <>
+            <div className="relative group">
+              <button
+                onClick={() => window.history.back()}
+                className="absolute -left-11 top-2 p-2 bg-white dark:bg-[#1a1d25] rounded-full shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-700 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 transition-all hidden xl:flex items-center justify-center hover:shadow-md"
+                title="Quay lại"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
               <PostCard
                 key={post._id}
                 post={post}
                 onVote={handleVote}
                 onEdit={handleEditPost}
                 onDelete={handleDeletePost}
+                onLockToggle={handleLockToggle}
               />
-
-              {post.status === "active" ? (
-                <div className="bg-white rounded-lg mt-4 p-4">
-                  <CommentSection postId={post._id} postAuthorId={post.author._id} />
-                </div>
-              ) : (
-                <div className="mt-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
-                  Bài viết đang chờ xét duyệt bởi cộng đồng. Bạn sẽ có thể bình luận sau khi được duyệt.
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-10 text-gray-500">
-              Không tìm thấy bài viết
             </div>
-          )}
-        </div>
 
-        <RightSidebar />
+            {post.status === "active" ? (
+              <div className="bg-white dark:bg-[#1a1d25] rounded-lg mt-4 p-4">
+                <CommentSection postId={post._id} postAuthorId={post.author._id} isLocked={isLocked} />
+              </div>
+            ) : (
+              <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/30 text-yellow-700 dark:text-yellow-500 px-4 py-3 rounded-lg">
+                Bài viết đang chờ xét duyệt bởi cộng đồng. Bạn sẽ có thể bình luận sau khi được duyệt.
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-10 text-gray-500">
+            Không tìm thấy bài viết
+          </div>
+        )}
       </div>
 
       {editingPost && (

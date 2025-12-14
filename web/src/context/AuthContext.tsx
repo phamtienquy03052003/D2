@@ -1,15 +1,14 @@
-// src/context/AuthContext.tsx
+
 import React, { createContext, useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
-import { io } from "socket.io-client";
 import { userService } from "../services/userService";
 import { pointService } from "../services/pointService";
 import type { User } from "../types/User";
 import Login from "../components/user/Login";
 import Register from "../components/user/Register";
 
-// Khởi tạo socket không tự connect
-export const socket = io("http://localhost:8000", { autoConnect: false });
+import { socket } from "../socket";
 
 type AuthMode = "none" | "login" | "register";
 
@@ -18,10 +17,11 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
   refreshUser: () => Promise<void>;
   handleSocketLogin: (token: string, userId: string) => void;
 
-  // modal
+  
   authMode: AuthMode;
   openLogin: () => void;
   openRegister: () => void;
@@ -33,6 +33,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>("none");
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   const formatUser = async (data: any): Promise<User> => {
     const resPoint = await pointService.getTotal();
@@ -52,13 +54,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       totalPoints: resPoint?.totalPoints ?? 0,
       inventory: data.inventory,
       selectedNameTag: data.selectedNameTag,
+      
     };
   };
 
   useEffect(() => {
     const loadUser = async () => {
       const token = localStorage.getItem("accessToken");
-      if (!token) return;
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const data = await userService.getMe();
@@ -66,7 +72,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(formattedUser);
 
-        // socket
+        
         socket.auth = { token };
         socket.connect();
         socket.on("connect", () => {
@@ -74,6 +80,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       } catch (err) {
         console.error("Không load được user:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -99,6 +107,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem("refreshToken");
     setUser(null);
     socket.disconnect();
+    navigate("/trang-chu");
   };
 
   const handleSocketLogin = (token: string, userId: string) => {
@@ -109,7 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   };
 
-  // Modal handlers
+  
   const openLogin = () => setAuthMode("login");
   const openRegister = () => setAuthMode("register");
   const closeAuth = () => setAuthMode("none");
@@ -121,6 +130,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser,
         logout,
         isAuthenticated: !!user,
+        isLoading,
         refreshUser,
         handleSocketLogin,
         authMode,
@@ -131,7 +141,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     >
       {children}
 
-      {/* Render modal ở đây, luôn sẵn */}
+      {}
       {authMode === "login" && <Login onClose={closeAuth} onSwitchToRegister={openRegister} />}
       {authMode === "register" && <Register onClose={closeAuth} onSwitchToLogin={openLogin} />}
     </AuthContext.Provider>

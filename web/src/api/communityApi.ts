@@ -12,6 +12,7 @@ export const communityApi = {
     return (await apiClient.get(`/communities/restricted-users${query}`)).data;
   },
   getRecentCommunities: async () => (await apiClient.get("/communities/recent/history")).data,
+  getTopCommunities: async () => (await apiClient.get("/communities/top")).data,
   create: async (data: { name: string; description: string }) => (await apiClient.post("/communities", data)).data,
   getMyCreatedCommunities: async () => (await apiClient.get("/communities/my-created")).data,
   getManagedCommunities: async () => (await apiClient.get("/communities/managed")).data,
@@ -31,9 +32,16 @@ export const communityApi = {
   rejectMember: async (communityId: string, memberId: string) => (await apiClient.post(`/communities/${communityId}/reject/${memberId}`)).data,
   addModerator: async (communityId: string, memberId: string) => (await apiClient.post(`/communities/${communityId}/moderators/${memberId}`)).data,
   removeModerator: async (communityId: string, memberId: string) => (await apiClient.delete(`/communities/${communityId}/moderators/${memberId}`)).data,
+  getModeratorLogs: async (communityId: string, page = 1, limit = 20) => (await apiClient.get(`/communities/${communityId}/moderator-logs?page=${page}&limit=${limit}`)).data,
+  getCommunityStats: async (id: string, timeRange: string) => (await apiClient.get(`/communities/${id}/stats?timeRange=${timeRange}`)).data,
 
   adminGetAll: async () => (await apiClient.get("/communities/admin/all")).data,
   adminUpdate: async (id: string, data: any) => (await apiClient.put(`/communities/admin/${id}`, data)).data,
   adminDelete: async (id: string) => (await apiClient.delete(`/communities/admin/${id}`)).data,
+  async inviteMember(communityId: string, userId: string) {
+    const res = await apiClient.post(`/communities/${communityId}/invite`, { userId });
+    return res.data;
+  },
   toggleNotification: async (id: string) => (await apiClient.post(`/communities/${id}/notification`)).data,
+  logVisit: async (id: string) => (await apiClient.post(`/communities/${id}/visit`)).data,
 };

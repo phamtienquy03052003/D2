@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Follow from "../models/Follow.js";
 import UserPoint from "../models/UserPoint.js";
@@ -5,30 +6,41 @@ import Community from "../models/Community.js";
 import ExperienceHistory from "../models/ExperienceHistory.js";
 import { deleteAvatarFile } from "./uploadController.js";
 import bcrypt from "bcrypt";
+import slugify from "slugify";
+import { nanoid } from "nanoid";
 
-// Lấy thông tin người dùng hiện tại (qua token)
+
+/**
+ * Lấy thông tin cá nhân của người dùng đang đăng nhập
+ * - Bao gồm thông tin cơ bản, điểm, số lượng cộng đồng, người theo dõi.
+ */
 export const getMe = async (req, res) => {
   try {
     let user = await User.findById(req.user.id).select("-password -refreshTokens");
     if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
 
+
+    if (mongoose.Types.ObjectId.isValid(user.selectedNameTag)) {
+      await user.populate("selectedNameTag", "name value color");
+    }
+
     user = user.toObject();
 
-    // Ghép địa chỉ đầy đủ cho avatar nếu chưa có http
+
     if (user.avatar && !user.avatar.startsWith("http")) {
       const base = process.env.BACKEND_URL || "http://localhost:8000";
       user.avatar = `${base}${user.avatar}`;
     }
 
-    // Count joined communities
+
     const communityCount = await Community.countDocuments({ members: req.user.id, status: "active" });
     user.communityCount = communityCount;
 
-    // Fetch total points
+
     const userPoint = await UserPoint.findOne({ user: req.user.id });
     user.totalPoints = userPoint ? userPoint.totalPoints : 0;
 
-    // Count followers
+
     const followerCount = await Follow.countDocuments({ following: req.user.id });
     user.followerCount = followerCount;
 
@@ -38,23 +50,41 @@ export const getMe = async (req, res) => {
   }
 };
 
-// Lấy thông tin public của user theo id
+
+/**
+ * Lấy thông tin công khai của người dùng (theo ID hoặc Slug)
+ * - Kiểm tra nếu user bị chặn.
+ * - Trả về thông tin cơ bản, điểm, danh hiệu.
+ */
 export const getUserPublic = async (req, res) => {
   try {
-    // Select blockedUsers to check, but don't return it
-    const user = await User.findById(req.params.id).select("name avatar role isPrivate blockedUsers createdAt level selectedNameTag");
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id };
+    } else {
+      query = { slug: id };
+    }
+
+    const user = await User.findOne(query)
+      .select("name avatar role isPrivate blockedUsers createdAt level selectedNameTag slug socialLinks");
     if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+
+    if (mongoose.Types.ObjectId.isValid(user.selectedNameTag)) {
+      await user.populate("selectedNameTag", "name value color");
+    }
 
     const result = user.toObject();
 
-    // Check if requester is blocked
+
     if (req.user && result.blockedUsers && result.blockedUsers.map(id => id.toString()).includes(req.user.id)) {
       result.isBlocked = true;
     } else {
       result.isBlocked = false;
     }
 
-    // Remove sensitive data
+
     delete result.blockedUsers;
 
     if (result.avatar && !result.avatar.startsWith("http")) {
@@ -62,16 +92,16 @@ export const getUserPublic = async (req, res) => {
       result.avatar = `${base}${result.avatar}`;
     }
 
-    // Fetch total points
-    const userPoint = await UserPoint.findOne({ user: req.params.id });
+
+    const userPoint = await UserPoint.findOne({ user: user._id });
     result.totalPoints = userPoint ? userPoint.totalPoints : 0;
 
-    // Count joined communities
-    const communityCount = await Community.countDocuments({ members: req.params.id, status: "active" });
+
+    const communityCount = await Community.countDocuments({ members: user._id, status: "active" });
     result.communityCount = communityCount;
 
-    // Count followers
-    const followerCount = await Follow.countDocuments({ following: req.params.id });
+
+    const followerCount = await Follow.countDocuments({ following: user._id });
     result.followerCount = followerCount;
 
     res.json(result);
@@ -80,6 +110,9 @@ export const getUserPublic = async (req, res) => {
   }
 };
 
+/**
+ * Tìm kiếm người dùng theo tên
+ */
 export const searchUsers = async (req, res) => {
   try {
     const { q } = req.query;
@@ -90,7 +123,7 @@ export const searchUsers = async (req, res) => {
     const users = await User.find({
       name: { $regex: q, $options: "i" }
     })
-      .select("name avatar email role isActive")
+      .select("name avatar email role isActive slug")
       .limit(20);
 
     res.json(users);
@@ -99,16 +132,35 @@ export const searchUsers = async (req, res) => {
   }
 };
 
-// Cập nhật thông tin cá nhân (tên)
+
+/**
+ * Cập nhật thông tin hồ sơ (Tên, Liên kết mạng xã hội)
+ * - Tự động cập nhật slug nếu đổi tên.
+ */
 export const updateProfile = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, socialLinks } = req.body;
     const userId = req.user.id;
     if (!name) return res.status(400).json({ message: "Tên không được để trống" });
 
+    const updateData = { name };
+
+
+    let slug = slugify(name, { lower: true, strict: true });
+
+    const existingSlug = await User.findOne({ slug, _id: { $ne: userId } });
+    if (existingSlug) {
+      slug = `${slug}-${nanoid(6)}`;
+    }
+    updateData.slug = slug;
+
+    if (socialLinks) {
+      updateData.socialLinks = socialLinks;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { name },
+      updateData,
       { new: true }
     ).select("-password -refreshTokens");
 
@@ -121,7 +173,10 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Đổi mật khẩu
+
+/**
+ * Đổi mật khẩu
+ */
 export const updatePassword = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -153,7 +208,10 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-// Thay đổi trạng thái private
+
+/**
+ * Cập nhật chế độ riêng tư (Public/Private Profile)
+ */
 export const updatePrivacy = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -178,7 +236,10 @@ export const updatePrivacy = async (req, res) => {
   }
 };
 
-// Cập nhật số điện thoại
+
+/**
+ * Cập nhật số điện thoại
+ */
 export const updatePhone = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -199,7 +260,10 @@ export const updatePhone = async (req, res) => {
   }
 };
 
-// Cập nhật giới tính
+
+/**
+ * Cập nhật giới tính
+ */
 export const updateGender = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -224,7 +288,10 @@ export const updateGender = async (req, res) => {
   }
 };
 
-// Cập nhật quyền gửi tin nhắn
+
+/**
+ * Cập nhật quyền nhận tin nhắn (Everyone, Over30Days, Noone)
+ */
 export const updateChatRequestPermission = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -249,18 +316,21 @@ export const updateChatRequestPermission = async (req, res) => {
   }
 };
 
-// Cập nhật thẻ tên
+
+/**
+ * Cập nhật danh hiệu (NameTag) đang sử dụng
+ */
 export const updateNameTag = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { nameTagId } = req.body; // nameTagId có thể là null để gỡ thẻ
+    const { nameTagId } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
 
     if (nameTagId) {
-      // Kiểm tra xem user có sở hữu thẻ này không
-      if (!user.inventory || !user.inventory.includes(nameTagId)) {
+
+      if (!user.inventory || !user.inventory.some(id => id.toString() === nameTagId)) {
         return res.status(400).json({ message: "Bạn chưa sở hữu thẻ tên này" });
       }
     }
@@ -277,7 +347,12 @@ export const updateNameTag = async (req, res) => {
   }
 };
 
-// Lấy danh sách người dùng (Admin)
+
+
+
+/**
+ * Lấy danh sách tất cả người dùng (Admin)
+ */
 export const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select("-password");
@@ -287,7 +362,10 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-// Cập nhật thông tin người dùng (Admin)
+
+/**
+ * Cập nhật thông tin người dùng (Admin)
+ */
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -309,7 +387,10 @@ export const updateUser = async (req, res) => {
   }
 };
 
-// Xóa người dùng (Admin)
+
+/**
+ * Xóa người dùng (Admin)
+ */
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -329,7 +410,10 @@ export const deleteUser = async (req, res) => {
 };
 
 
-// Chặn người dùng
+
+/**
+ * Chặn người dùng (Block)
+ */
 export const blockUser = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -351,7 +435,10 @@ export const blockUser = async (req, res) => {
   }
 };
 
-// Bỏ chặn người dùng
+
+/**
+ * Bỏ chặn người dùng (Unblock)
+ */
 export const unblockUser = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -367,11 +454,14 @@ export const unblockUser = async (req, res) => {
   }
 };
 
-// Lấy danh sách người dùng bị chặn
+
+/**
+ * Lấy danh sách người dùng đã chặn
+ */
 export const getBlockedUsers = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findById(userId).populate("blockedUsers", "name avatar email selectedNameTag");
+    const user = await User.findById(userId).populate("blockedUsers", "name avatar email selectedNameTag slug");
 
     const blockedUsers = user.blockedUsers.map(u => {
       const obj = u.toObject();
@@ -388,11 +478,21 @@ export const getBlockedUsers = async (req, res) => {
   }
 };
 
-// Follow a user
+
+/**
+ * Theo dõi người dùng
+ */
 export const followUser = async (req, res) => {
   try {
     const followerId = req.user.id;
-    const { followingId } = req.body;
+    let { followingId } = req.body;
+
+
+    if (followingId && !mongoose.Types.ObjectId.isValid(followingId)) {
+      const targetUser = await User.findOne({ slug: followingId });
+      if (!targetUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      followingId = targetUser._id.toString();
+    }
 
     if (followerId === followingId) {
       return res.status(400).json({ message: "Không thể tự theo dõi chính mình" });
@@ -412,11 +512,21 @@ export const followUser = async (req, res) => {
   }
 };
 
-// Unfollow a user
+
+/**
+ * Bỏ theo dõi người dùng
+ */
 export const unfollowUser = async (req, res) => {
   try {
     const followerId = req.user.id;
-    const { followingId } = req.body;
+    let { followingId } = req.body;
+
+
+    if (followingId && !mongoose.Types.ObjectId.isValid(followingId)) {
+      const targetUser = await User.findOne({ slug: followingId });
+      if (!targetUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      followingId = targetUser._id.toString();
+    }
 
     const deletedFollow = await Follow.findOneAndDelete({ follower: followerId, following: followingId });
     if (!deletedFollow) {
@@ -429,11 +539,21 @@ export const unfollowUser = async (req, res) => {
   }
 };
 
-// Toggle follow notification
+
+/**
+ * Bật/Tắt thông báo từ người đang theo dõi
+ */
 export const toggleFollowNotification = async (req, res) => {
   try {
     const followerId = req.user.id;
-    const { followingId } = req.body;
+    let { followingId } = req.body;
+
+
+    if (followingId && !mongoose.Types.ObjectId.isValid(followingId)) {
+      const targetUser = await User.findOne({ slug: followingId });
+      if (!targetUser) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      followingId = targetUser._id.toString();
+    }
 
     const follow = await Follow.findOne({ follower: followerId, following: followingId });
     if (!follow) {
@@ -449,11 +569,21 @@ export const toggleFollowNotification = async (req, res) => {
   }
 };
 
-// Get follow status
+
+/**
+ * Kiểm tra trạng thái theo dõi
+ */
 export const getFollowStatus = async (req, res) => {
   try {
     const followerId = req.user.id;
-    const { followingId } = req.params;
+    let { followingId } = req.params;
+
+
+    if (followingId && !mongoose.Types.ObjectId.isValid(followingId)) {
+      const targetUser = await User.findOne({ slug: followingId });
+      if (!targetUser) return res.json({ isFollowing: false, hasNotifications: false });
+      followingId = targetUser._id.toString();
+    }
 
     const follow = await Follow.findOne({ follower: followerId, following: followingId });
 
@@ -467,16 +597,25 @@ export const getFollowStatus = async (req, res) => {
   }
 };
 
-// Lấy danh sách người theo dõi mình
+
+/**
+ * Lấy danh sách người đang theo dõi mình (Followers)
+ */
 export const getMyFollowers = async (req, res) => {
   try {
     const userId = req.user.id;
     const followers = await Follow.find({ following: userId })
-      .populate("follower", "name avatar email level selectedNameTag")
+      .populate({
+        path: "follower",
+        select: "name avatar email level selectedNameTag slug",
+        populate: [
+          { path: "selectedNameTag", select: "name value color" }
+        ]
+      })
       .sort({ createdAt: -1 });
 
     const result = followers.map(f => {
-      if (!f.follower) return null; // Handle case where user might be deleted
+      if (!f.follower) return null;
       const user = f.follower.toObject();
       if (user.avatar && !user.avatar.startsWith("http")) {
         const base = process.env.BACKEND_URL || "http://localhost:8000";
@@ -491,7 +630,10 @@ export const getMyFollowers = async (req, res) => {
   }
 };
 
-// Lấy lịch sử kinh nghiệm
+
+/**
+ * Lấy lịch sử kinh nghiệm (XP History)
+ */
 export const getXPHistory = async (req, res) => {
   try {
     const userId = req.user.id;

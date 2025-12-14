@@ -1,4 +1,6 @@
 import axios from "axios";
+import toast from "react-hot-toast";
+import { socket } from "../socket";
 
 interface RefreshResponse {
   accessToken: string;
@@ -10,19 +12,92 @@ const apiClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Thêm accessToken vào mọi request
+import { jwtDecode } from "jwt-decode";
+
+
+const refreshTokenLogic = async () => {
+  return await navigator.locks.request("token-refresh", async () => {
+    
+    const currentToken = localStorage.getItem("accessToken");
+    if (currentToken) {
+      try {
+        const decoded: any = jwtDecode(currentToken);
+        if (decoded.exp * 1000 > Date.now()) {
+          return currentToken;
+        }
+      } catch (e) {
+        
+      }
+    }
+
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) throw new Error("Missing refresh token");
+
+    const res = await axios.post<RefreshResponse>(
+      "http://localhost:8000/api/auth/refresh",
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    const { accessToken, refreshToken: newRefreshToken } = res.data;
+
+    localStorage.setItem("accessToken", accessToken);
+    if (newRefreshToken) {
+      localStorage.setItem("refreshToken", newRefreshToken);
+    }
+
+    socket.auth = { token: accessToken };
+    socket.disconnect().connect();
+
+    apiClient.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+    return accessToken;
+  });
+};
+
 apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("accessToken");
+  async (config) => {
+    let token = localStorage.getItem("accessToken");
+
+    if (token) {
+      try {
+        const decoded: any = jwtDecode(token);
+        
+        if (decoded.exp * 1000 < Date.now() + 10000) {
+          try {
+            token = await refreshTokenLogic();
+          } catch (error) {
+            console.error("Proactive refresh failed", error);
+            
+            
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            window.location.href = "/trang-chu";
+            return Promise.reject(error);
+          }
+        }
+      } catch (error) {
+        
+      }
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Xử lý tự động refresh token khi token hết hạn
+
+
+
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -30,36 +105,78 @@ apiClient.interceptors.response.use(
 
     if (
       (error.response?.status === 401 ||
-        (error.response?.status === 403 && error.response?.data?.message === "Invalid token")) &&
+        (error.response?.status === 403 && (error.response?.data?.message === "Invalid token" || error.response?.data?.message === "jwt expired"))) &&
       !originalRequest._retry
     ) {
       originalRequest._retry = true;
+
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        localStorage.removeItem("accessToken");
+        window.location.href = "/trang-chu";
+        return Promise.reject(error);
+      }
+
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (!refreshToken) throw new Error("Missing refresh token");
+        
+        return await navigator.locks.request("token-refresh", async () => {
+          
+          const currentToken = localStorage.getItem("accessToken");
+          if (currentToken && currentToken !== originalRequest.headers.Authorization?.split(" ")[1]) {
+            originalRequest.headers.Authorization = `Bearer ${currentToken}`;
+            return apiClient(originalRequest);
+          }
 
-        const res = await axios.post<RefreshResponse>(
-          "http://localhost:8000/api/auth/refresh",
-          { refreshToken },
-          { headers: { "Content-Type": "application/json" } }
-        );
+          
+          const refreshToken = localStorage.getItem("refreshToken");
+          if (!refreshToken) throw new Error("Missing refresh token");
 
-        const { accessToken, refreshToken: newRefreshToken } = res.data;
-        localStorage.setItem("accessToken", accessToken);
-        if (newRefreshToken) {
-          localStorage.setItem("refreshToken", newRefreshToken);
-        }
+          const res = await axios.post<RefreshResponse>(
+            "http://localhost:8000/api/auth/refresh",
+            { refreshToken },
+            { headers: { "Content-Type": "application/json" } }
+          );
 
-        // Gắn token mới vào request gốc
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return apiClient(originalRequest);
+          const { accessToken, refreshToken: newRefreshToken } = res.data;
+
+          localStorage.setItem("accessToken", accessToken);
+          if (newRefreshToken) {
+            localStorage.setItem("refreshToken", newRefreshToken);
+          }
+
+          
+          socket.auth = { token: accessToken };
+          socket.disconnect().connect();
+
+          apiClient.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+
+          
+          if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+            originalRequest.headers.set('Authorization', `Bearer ${accessToken}`);
+          } else {
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
+          }
+
+          
+          
+          
+
+          return apiClient(originalRequest);
+        });
+
       } catch (refreshError) {
         console.error("Refresh token error:", refreshError);
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         window.location.href = "/trang-chu";
+        return Promise.reject(refreshError);
       }
     }
+
+    
+    const errorMessage = error.response?.data?.message || "Something went wrong";
+    toast.error(errorMessage);
 
     return Promise.reject(error);
   }

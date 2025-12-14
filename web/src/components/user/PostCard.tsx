@@ -8,15 +8,15 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Lock,
+  Unlock,
 } from "lucide-react";
+import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { socket } from "../../context/AuthContext";
+import { socket } from "../../socket";
 import { postService } from "../../services/postService";
 import { commentService } from "../../services/commentService";
 import { useAuth } from "../../context/AuthContext";
-import { getAuthorName, getPostImageUrl } from "../../utils/postUtils";
-import { getUserAvatarUrl } from "../../utils/userUtils";
-import { getCommunityAvatarUrl } from "../../utils/communityUtils";
 import { timeAgo } from "../../utils/dateUtils";
 import type { Post } from "../../types/Post";
 import type { Comment } from "../../types/Comment";
@@ -24,6 +24,13 @@ import ReportPostModal from "../../components/user/ReportPostModal";
 import SharePostModal from "../../components/user/SharePostModal";
 import LevelTag from "./LevelTag";
 import NameTag from "./NameTag";
+import UserHoverCard from "./UserHoverCard";
+import CommunityHoverCard from "./CommunityHoverCard";
+import UserAvatar from "../common/UserAvatar";
+import UserName from "../common/UserName";
+import CommunityAvatar from "../common/CommunityAvatar";
+import CommunityName from "../common/CommunityName";
+import ImageCarousel from "../common/ImageCarousel";
 
 interface PostCardProps {
   post: Post;
@@ -33,16 +40,17 @@ interface PostCardProps {
   onReport?: (post: Post) => void;
   onUnsave?: (postId: string) => void;
   onNavigate?: () => void;
+  onLockToggle?: (isLocked: boolean) => void;
 }
 
-// Helper function để đếm tổng số comments (bao gồm cả replies)
+
 const countTotalComments = (comments: Comment[]): number => {
   if (!comments || comments.length === 0) return 0;
   let count = 0;
   comments.forEach((comment) => {
-    count += 1; // Đếm comment gốc
+    count += 1; 
     if (comment.replies && comment.replies.length > 0) {
-      count += countTotalComments(comment.replies); // Đệ quy đếm replies
+      count += countTotalComments(comment.replies); 
     }
   });
   return count;
@@ -58,6 +66,7 @@ const PostCard: React.FC<PostCardProps> = ({
   onDelete,
   onUnsave,
   onNavigate,
+  onLockToggle,
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -78,11 +87,24 @@ const PostCard: React.FC<PostCardProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCommentCount, setActiveCommentCount] = useState<number>(post.commentCount || 0);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isLocked, setIsLocked] = useState<boolean>(post.isLocked || false);
+
+  const handleToggleLock = async () => {
+    try {
+      const res = await postService.toggleLock(post._id);
+      setIsLocked(res.isLocked);
+      onLockToggle?.(res.isLocked);
+      setMenuOpen(false);
+    } catch (error) {
+      console.error("Lỗi toggle lock:", error);
+    }
+  };
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Fetch số lượng comments active (chỉ fetch nếu không có sẵn commentCount)
+  
   useEffect(() => {
     if (!canInteract) {
       setActiveCommentCount(0);
@@ -108,20 +130,23 @@ const PostCard: React.FC<PostCardProps> = ({
     fetchCommentCount();
   }, [post._id, canInteract, post.commentCount]);
 
-  // Lắng nghe socket để cập nhật số lượng comments realtime
+  
   useEffect(() => {
     if (!canInteract) return;
 
+    
+    socket.emit("joinPost", post._id);
+
     const handleNewComment = (comment: Comment) => {
-      // Comment mới luôn có status "active" khi được emit
+      
       if (comment.post === post._id) {
         setActiveCommentCount((prev) => prev + 1);
       }
     };
 
     const handleDeleteComment = () => {
-      // Khi comment bị xóa, cần fetch lại để có số lượng chính xác
-      // vì có thể xóa kèm theo các replies
+      
+      
       const fetchCommentCount = async () => {
         try {
           const comments = await commentService.getByPost(post._id);
@@ -138,12 +163,13 @@ const PostCard: React.FC<PostCardProps> = ({
     socket.on("deleteComment", handleDeleteComment);
 
     return () => {
+      socket.emit("leavePost", post._id);
       socket.off("newComment", handleNewComment);
       socket.off("deleteComment", handleDeleteComment);
     };
   }, [post._id, canInteract]);
 
-  // Đồng bộ vote
+  
   useEffect(() => {
     setLocalVotes({
       upvotes: post.upvotes || [],
@@ -151,7 +177,7 @@ const PostCard: React.FC<PostCardProps> = ({
     });
   }, [post.upvotes, post.downvotes]);
 
-  // Kiểm tra vote của user
+  
   useEffect(() => {
     if (!user?._id) return setUserVote(null);
 
@@ -163,13 +189,13 @@ const PostCard: React.FC<PostCardProps> = ({
     else setUserVote(null);
   }, [post.upvotes, post.downvotes, user?._id]);
 
-  // Kiểm tra xem bài viết đã được lưu chưa (Lazy check)
+  
   const checkSavedStatus = async () => {
     if (!user?._id || !canInteract) return;
 
     try {
-      // Vì API hiện tại là lấy tất cả bài đã lưu, nên ta vẫn phải lấy list về check
-      // Tuy nhiên việc này chỉ xảy ra khi user mở menu
+      
+      
       const savedPosts = await postService.getSavedPosts();
       const saved = savedPosts.some((p) => p._id === post._id);
       setIsSaved(saved);
@@ -179,10 +205,11 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  // Lắng nghe socket
+  
   useEffect(() => {
-    const handler = ({ postId, upvotes, downvotes }: any) => {
-      if (postId === post._id) setLocalVotes({ upvotes, downvotes });
+    const handler = ({ _id, upvotes, downvotes }: any) => {
+      
+      if (_id === post._id) setLocalVotes({ upvotes, downvotes });
     };
 
     socket.on("updatePostVote", handler);
@@ -192,7 +219,7 @@ const PostCard: React.FC<PostCardProps> = ({
     };
   }, [post._id]);
 
-  // Click ngoài menu => đóng
+  
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -204,12 +231,12 @@ const PostCard: React.FC<PostCardProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  // Vote
+  
   const handleVote = async (type: "upvote" | "downvote") => {
     if (!canInteract) return;
 
     try {
-      // Optimistic update for userVote
+      
       setUserVote((prev) =>
         (prev === "up" && type === "upvote") ||
           (prev === "down" && type === "downvote")
@@ -226,28 +253,28 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  // Chỉnh sửa
+  
   const handleEdit = () => {
     setMenuOpen(false);
     onEdit?.(post);
   };
 
-  // Xóa
+  
   const handleDelete = () => {
     setMenuOpen(false);
     onDelete?.(post._id);
   };
 
-  // Báo cáo
+  
   const handleReport = () => {
     setMenuOpen(false);
     setReportModalOpen(true);
   };
 
-  // Chia sẻ
+  
   const handleShare = () => {
     if (!user) {
-      alert("Vui lòng đăng nhập để chia sẻ bài viết");
+      toast.error("Vui lòng đăng nhập để chia sẻ bài viết");
       return;
     }
     setShareModalOpen(true);
@@ -257,12 +284,12 @@ const PostCard: React.FC<PostCardProps> = ({
 
   const handleUserClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (post.author?._id) navigate(`/nguoi-dung/${post.author._id}`);
+    if (post.author?._id) navigate(`/nguoi-dung/${post.author.slug || post.author._id}`);
   };
 
-  // Xử lý lưu/hủy lưu
+  
   const handleSave = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Ngăn navigate khi click vào nút
+    e.stopPropagation(); 
     if (!canInteract || !user || isSaving) return;
 
     try {
@@ -270,7 +297,7 @@ const PostCard: React.FC<PostCardProps> = ({
       if (isSaved) {
         await postService.unsave(post._id);
         setIsSaved(false);
-        // Gọi callback nếu có (để cập nhật danh sách ở trang đã lưu)
+        
         onUnsave?.(post._id);
       } else {
         await postService.save(post._id);
@@ -283,198 +310,232 @@ const PostCard: React.FC<PostCardProps> = ({
     }
   };
 
-  // Render nội dung bài viết (bao gồm cả shared post)
+  
   const renderPostContent = () => {
     return (
       <>
-        <h2 className="text-lg font-medium text-gray-900 mb-2 leading-snug break-words break-all overflow-hidden">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 leading-snug break-words overflow-hidden">
           {post.title}
         </h2>
 
         {post.content && (
-          <div
-            className="text-sm text-gray-800 mb-3 leading-relaxed prose max-w-none break-words break-all overflow-hidden"
-            dangerouslySetInnerHTML={{ __html: post.content }}
-          />
+          <div className="ql-snow">
+            <div
+              className="ql-editor !p-0 !min-h-0 text-gray-800 dark:text-gray-200 mb-3"
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+          </div>
         )}
 
-        {/* Hiển thị ảnh (Single or Multiple) */}
-        {post.images && post.images.length > 0 ? (
-          <div className={`grid gap-1 mb-3 ${post.images.length === 1 ? "grid-cols-1" :
-            post.images.length === 2 ? "grid-cols-2" :
-              "grid-cols-2"
-            }`}>
-            {post.images.slice(0, 4).map((img: string, index: number) => (
-              <div key={index} className={`relative ${post.images!.length === 3 && index === 0 ? "col-span-2" : ""
-                } `}>
-                <img
-                  src={getPostImageUrl(img)}
-                  alt={`Post content ${index + 1} `}
-                  className="w-full h-full object-cover rounded hover:opacity-95 transition-opacity"
-                  style={{ maxHeight: "500px", minHeight: "200px" }}
-                />
-                {post.images!.length > 4 && index === 3 && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded">
-                    <span className="text-white text-xl font-bold">+{post.images!.length - 4}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : post.image ? (
+        {}
+        {post.linkUrl && (
+          <a
+            href={post.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-[#272a33] border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+          >
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate group-hover:underline">
+                {post.linkUrl}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {new URL(post.linkUrl).hostname}
+              </p>
+            </div>
+          </a>
+        )}
+
+        {}
+        {post.video && (
           <div className="mb-3">
-            <img
-              src={getPostImageUrl(post.image)}
+            <video
+              controls
+              className="w-full rounded-lg"
+              preload="metadata"
+            >
+              <source src={`http://localhost:8000${post.video}`} type="video/mp4" />
+              Trình duyệt của bạn không hỗ trợ video.
+            </video>
+          </div>
+        )}
+
+        {}
+        {((post.images && post.images.length > 0) || post.image) ? (
+          <div className="mb-3">
+            <ImageCarousel
+              images={post.images && post.images.length > 0 ? post.images : [post.image!]}
               alt="Post content"
-              className="max-w-full h-auto rounded hover:opacity-95 transition-opacity"
-              style={{ maxHeight: "500px" }}
             />
           </div>
         ) : null}
 
-        {/* Shared Post Content */}
+        {}
         {post.sharedPost && (
-          <div className="border border-gray-200 rounded-xl p-4 bg-white mt-3 hover:border-gray-300 transition-colors cursor-pointer shadow-sm"
+          <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-white dark:bg-[#1a1d25] mt-3 hover:border-gray-300 dark:hover:border-gray-600 transition-colors cursor-pointer shadow-sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/chi-tiet-bai-viet/${post.sharedPost?._id}`);
+              navigate(`/chi-tiet-bai-viet/${post.sharedPost?.slug || post.sharedPost?._id}`);
             }}
           >
-            {/* Shared Post Header */}
+            {}
             <div className="flex items-center space-x-2 mb-3">
               {post.sharedPost.community ? (
-                // --- Shared Post: Community Layout ---
+                
                 <>
                   <div className="relative cursor-pointer" onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/cong-dong/${post.sharedPost?.community?._id}`);
+                    navigate(`/cong-dong/${post.sharedPost?.community?.slug || post.sharedPost?.community?._id}`);
                   }}>
-                    {/* Community Avatar (Lớn) */}
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-100">
-                      <img
-                        src={getCommunityAvatarUrl(post.sharedPost.community as any)}
-                        alt={post.sharedPost.community.name}
-                        className="w-full h-full object-cover"
+                    {}
+                    <CommunityHoverCard communityId={post.sharedPost.community._id}>
+                      <CommunityAvatar
+                        community={post.sharedPost.community}
+                        size="w-10 h-10"
+                        className="rounded-full border border-gray-100 dark:border-gray-700"
                       />
-                    </div>
-                    {/* User Avatar (Nhỏ) */}
+                    </CommunityHoverCard>
+                    {}
                     <div
-                      className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white overflow-hidden cursor-pointer bg-white"
+                      className="absolute z-10 -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white dark:border-[#1a1d25] overflow-hidden cursor-pointer bg-white dark:bg-[#1a1d25]"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author._id}`);
+                        if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author.slug || post.sharedPost.author._id}`);
                       }}
                     >
-                      {post.sharedPost.author ? (
-                        <img
-                          src={getUserAvatarUrl(post.sharedPost.author)}
-                          alt={post.sharedPost.author.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-blue-500" />
-                      )}
+                      <UserHoverCard userId={post.sharedPost.author?._id || ""}>
+                        {post.sharedPost.author ? (
+                          <UserAvatar
+                            user={post.sharedPost.author}
+                            size="sm"
+                            className="w-full h-full"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500" />
+                        )}
+                      </UserHoverCard>
                     </div>
                   </div>
 
                   <div className="flex flex-col ml-1 justify-center">
-                    <div className="flex items-center space-x-1 text-xs text-gray-500">
-                      <span
-                        className="font-bold text-sm text-gray-900 hover:underline cursor-pointer leading-tight"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/cong-dong/${post.sharedPost?.community?._id}`);
-                        }}
-                      >
-                        {post.sharedPost.community.name}
-                      </span>
+                    <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                      <CommunityHoverCard communityId={post.sharedPost.community._id}>
+                        <CommunityName
+                          community={post.sharedPost.community}
+                          className="font-bold text-sm text-gray-900 dark:text-gray-100 hover:text-cyan-500 hover:no-underline cursor-pointer leading-tight"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/cong-dong/${post.sharedPost?.community?.slug || post.sharedPost?.community?._id}`);
+                          }}
+                        />
+                      </CommunityHoverCard>
                       <span>•</span>
                       <span>{timeAgo(post.sharedPost.createdAt)}</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span
-                        className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author._id}`);
-                        }}
-                      >
-                        {post.sharedPost.author?.name || "Người dùng"}
-                      </span>
+                      <UserHoverCard userId={post.sharedPost.author?._id || ""}>
+                        <UserName
+                          user={post.sharedPost.author}
+                          className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-cyan-500 hover:no-underline cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author.slug || post.sharedPost.author._id}`);
+                          }}
+                        />
+                      </UserHoverCard>
                       <LevelTag level={post.sharedPost.author?.level} size="xs" />
                       <NameTag tagId={post.sharedPost.author?.selectedNameTag} size="sm" />
                     </div>
                   </div>
                 </>
               ) : (
-                // --- Shared Post: Personal Layout ---
+                
                 <>
-                  <div
-                    className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center cursor-pointer border border-gray-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author._id}`);
-                    }}
-                  >
-                    {post.sharedPost.author ? (
-                      <img
-                        src={getUserAvatarUrl(post.sharedPost.author)}
-                        alt={post.sharedPost.author.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-white text-xs font-bold bg-blue-500 w-full h-full flex items-center justify-center">
-                        ?
-                      </span>
-                    )}
-                  </div>
+                  <UserHoverCard userId={post.sharedPost.author?._id || ""}>
+                    <div
+                      className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-white dark:bg-[#1a1d25] flex items-center justify-center cursor-pointer border border-gray-100 dark:border-gray-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author.slug || post.sharedPost.author._id}`);
+                      }}
+                    >
+                      {post.sharedPost.author ? (
+                        <UserAvatar
+                          user={post.sharedPost.author}
+                          size="md"
+                          className="w-full h-full"
+                        />
+                      ) : (
+                        <span className="text-white text-xs font-bold bg-blue-500 w-full h-full flex items-center justify-center">
+                          ?
+                        </span>
+                      )}
+                    </div>
+                  </UserHoverCard>
 
                   <div className="flex flex-col ml-1">
                     <div className="flex items-center space-x-2">
-                      <span
-                        className="font-bold text-sm text-gray-900 hover:text-orange-500 cursor-pointer leading-tight"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author._id}`);
-                        }}
-                      >
-                        {post.sharedPost.author?.name || "Người dùng"}
-                      </span>
+                      <UserHoverCard userId={post.sharedPost.author?._id || ""}>
+                        <UserName
+                          user={post.sharedPost.author}
+                          className="font-bold text-sm text-gray-900 dark:text-gray-100 hover:text-cyan-500 cursor-pointer leading-tight"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (post.sharedPost?.author?._id) navigate(`/nguoi-dung/${post.sharedPost.author.slug || post.sharedPost.author._id}`);
+                          }}
+                        />
+                      </UserHoverCard>
                       <LevelTag level={post.sharedPost.author?.level} size="xs" />
                       <NameTag tagId={post.sharedPost.author?.selectedNameTag} size="sm" />
                     </div>
-                    <span className="text-xs text-gray-500">{timeAgo(post.sharedPost.createdAt)}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(post.sharedPost.createdAt)}</span>
                   </div>
                 </>
               )}
             </div>
 
-            <h4 className="font-medium text-gray-900 mb-2 line-clamp-2 text-base">{post.sharedPost.title}</h4>
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 line-clamp-2 text-base">{post.sharedPost.title}</h4>
 
-            {post.sharedPost.images && post.sharedPost.images.length > 0 ? (
-              <div className="mb-3 h-48 w-full overflow-hidden rounded-lg">
-                <img
-                  src={getPostImageUrl(post.sharedPost.images[0])}
-                  alt="Shared post content"
-                  className="w-full h-full object-cover"
+            {post.sharedPost.content && (
+              <div className="ql-snow">
+                <div
+                  className="ql-editor !p-0 !min-h-0 text-sm text-gray-600 dark:text-gray-300 line-clamp-3 mb-3"
+                  dangerouslySetInnerHTML={{ __html: post.sharedPost.content }}
                 />
               </div>
-            ) : post.sharedPost.image ? (
-              <div className="mb-3 h-48 w-full overflow-hidden rounded-lg">
-                <img
-                  src={getPostImageUrl(post.sharedPost.image)}
+            )}
+
+            {}
+            {post.sharedPost.linkUrl && (
+              <a
+                href={post.sharedPost.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center p-3 mb-3 bg-gray-50 dark:bg-[#272a33] border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400 truncate group-hover:underline">
+                    {post.sharedPost.linkUrl}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {new URL(post.sharedPost.linkUrl).hostname}
+                  </p>
+                </div>
+              </a>
+            )}
+
+            {}
+            {(post.sharedPost.images && post.sharedPost.images.length > 0) || post.sharedPost.image ? (
+              <div className="mb-3">
+                <ImageCarousel
+                  images={post.sharedPost.images && post.sharedPost.images.length > 0 ? post.sharedPost.images : [post.sharedPost.image!]}
                   alt="Shared post content"
-                  className="w-full h-full object-cover"
                 />
               </div>
             ) : null}
-
-            {post.sharedPost.content && (
-              <div
-                className="text-sm text-gray-600 line-clamp-3"
-                dangerouslySetInnerHTML={{ __html: post.sharedPost.content }}
-              />
-            )}
           </div>
         )}
       </>
@@ -482,120 +543,122 @@ const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <div className="bg-white border-gray-200 rounded-2xl transition-colors hover:bg-gray-100 ">
-      {/* Header */}
+    <div className="bg-white dark:bg-[#1a1d25] border-gray-200 dark:border-gray-800 rounded-2xl transition-colors hover:bg-gray-100 dark:hover:bg-[#1e212b]">
+      {}
       <div className="flex items-center px-3 py-2 space-x-2">
         {post.community ? (
-          // --- Layout cho bài viết trong Community ---
+          
           <>
-            {/* Avatar Cluster */}
+            {}
             <div className="relative cursor-pointer" onClick={(e) => {
               e.stopPropagation();
-              navigate(`/cong-dong/${post.community?._id}`);
+              navigate(`/cong-dong/${post.community?.slug || post.community?._id}`);
             }}>
-              {/* Community Avatar (Lớn) */}
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-gray-100">
-                <img
-                  src={getCommunityAvatarUrl(post.community as any)}
-                  alt={post.community.name}
-                  className="w-full h-full object-cover"
+              {}
+              <CommunityHoverCard communityId={post.community._id}>
+                <CommunityAvatar
+                  community={post.community}
+                  size="w-12 h-12"
+                  className="rounded-full border border-gray-100 dark:border-gray-700"
                 />
-              </div>
-              {/* User Avatar (Nhỏ, đè góc - To hơn xíu) */}
+              </CommunityHoverCard>
+              {}
               <div
-                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-white overflow-hidden cursor-pointer bg-white"
+                className="absolute z-10 -bottom-1 -right-1 w-7 h-7 rounded-full border-2 border-white dark:border-[#1a1d25] overflow-hidden cursor-pointer bg-white dark:bg-[#1a1d25]"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleUserClick(e);
                 }}
               >
-                {post.author ? (
-                  <img
-                    src={getUserAvatarUrl(post.author)}
-                    alt={getAuthorName(post)}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-blue-500" />
-                )}
+                <UserHoverCard userId={post.author?._id || ""}>
+                  {post.author ? (
+                    <UserAvatar
+                      user={post.author}
+                      size="sm"
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-blue-500" />
+                  )}
+                </UserHoverCard>
               </div>
             </div>
 
-            {/* Name Cluster */}
+            {}
             <div className="flex flex-col ml-2 justify-center">
-              {/* Line 1: Tên Community • Time */}
-              <div className="flex items-center space-x-1 text-xs text-gray-500">
-                <span
-                  className="font-bold text-base text-gray-900 hover:underline cursor-pointer leading-tight"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/cong-dong/${post.community?._id}`);
-                  }}
-                >
-                  {post.community.name}
-                </span>
+              {}
+              <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-400">
+                <CommunityHoverCard communityId={post.community._id}>
+                  <CommunityName
+                    community={post.community}
+                    className="font-bold text-base text-gray-900 dark:text-gray-100 hover:text-cyan-500 hover:no-underline cursor-pointer leading-tight"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/cong-dong/${post.community?.slug || post.community?._id}`);
+                    }}
+                  />
+                </CommunityHoverCard>
                 <span>•</span>
                 <span>{timeAgo(post.createdAt)}</span>
               </div>
 
-              {/* Line 2: Tên User + Level Tag */}
+              {}
               <div className="flex items-center space-x-2 mt-0.5">
-                <span
-                  className="text-sm font-medium text-gray-700 hover:underline cursor-pointer"
-                  onClick={handleUserClick}
-                >
-                  {getAuthorName(post)}
-                </span>
+                <UserHoverCard userId={post.author?._id || ""}>
+                  <UserName
+                    user={post.author}
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-cyan-500 hover:no-underline cursor-pointer"
+                    onClick={handleUserClick}
+                  />
+                </UserHoverCard>
 
-                {/* Level Tag */}
+                {}
                 <LevelTag level={post.author?.level ?? (user?._id === post.author?._id ? user?.level : undefined)} />
                 <NameTag tagId={post.author?.selectedNameTag} size="sm" />
               </div>
             </div>
           </>
         ) : (
-          // --- Layout cho bài viết cá nhân ---
+          
           <>
-            {/* Avatar */}
-            <div
-              className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center cursor-pointer border border-gray-100"
-              onClick={handleUserClick}
-            >
-              {post.author ? (
-                <img
-                  src={getUserAvatarUrl(post.author)}
-                  alt={getAuthorName(post)}
-                  className="w-full h-full object-cover"
+            {}
+            <UserHoverCard userId={post.author?._id || ""}>
+              <div
+                className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-white dark:bg-[#1a1d25] flex items-center justify-center cursor-pointer border border-gray-100 dark:border-gray-700"
+                onClick={handleUserClick}
+              >
+                <UserAvatar
+                  user={post.author}
+                  size="md"
+                  className="w-full h-full"
                 />
-              ) : (
-                <span className="text-white text-xs font-bold bg-blue-500 w-full h-full flex items-center justify-center">
-                  ?
-                </span>
-              )}
-            </div>
 
-            {/* User • Time */}
+              </div>
+            </UserHoverCard>
+
+            {}
             <div className="flex flex-col ml-2">
               <div className="flex items-center space-x-2">
-                <span
-                  className="font-bold text-sm text-gray-900 hover:text-orange-500 cursor-pointer leading-tight"
-                  onClick={handleUserClick}
-                >
-                  {getAuthorName(post)}
-                </span>
+                <UserHoverCard userId={post.author?._id || ""}>
+                  <UserName
+                    user={post.author}
+                    className="font-bold text-sm text-gray-900 dark:text-gray-100 hover:text-cyan-500 cursor-pointer leading-tight"
+                    onClick={handleUserClick}
+                  />
+                </UserHoverCard>
                 <LevelTag level={post.author?.level} />
                 <NameTag tagId={post.author?.selectedNameTag} size="sm" />
               </div>
-              <span className="text-xs text-gray-500">{timeAgo(post.createdAt)}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(post.createdAt)}</span>
             </div>
           </>
         )}
 
-        {/* Menu */}
+        {}
         <div className="ml-auto flex items-center space-x-2">
           {statusLabel && (
             <span
-              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isPending ? "text-yellow-700 bg-yellow-100" : "text-red-600 bg-red-100"
+              className={`px-2 py-0.5 text-xs font-semibold rounded-full ${isPending ? "text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-500" : "text-red-600 bg-red-100 dark:bg-red-900/30 dark:text-red-500"
                 }`}
             >
               {statusLabel}
@@ -608,36 +671,36 @@ const PostCard: React.FC<PostCardProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!menuOpen) {
-                    checkSavedStatus(); // Check saved status when opening menu
+                    checkSavedStatus(); 
                   }
                   setMenuOpen((prev) => !prev);
                 }}
-                className="p-1.5 rounded hover:bg-gray-100"
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                <MoreHorizontal className="w-5 h-5 text-gray-600" />
+                <MoreHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-[140px]">
-                  {/* Lưu / Bỏ lưu - Luôn hiển thị đầu tiên */}
+                <div className="absolute right-0 top-8 bg-white dark:bg-[#1a1d25] border border-gray-200 dark:border-gray-700 rounded shadow-lg z-50 min-w-[180px]">
+                  {}
                   <button
                     onClick={(e) => {
                       handleSave(e);
                       setMenuOpen(false);
                     }}
                     disabled={isSaving}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 w-full text-left text-sm"
+                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
                   >
                     <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
                     <span>{isSaving ? "Đang xử lý..." : isSaved ? "Bỏ lưu" : "Lưu"}</span>
                   </button>
 
-                  {/* Chủ bài viết */}
+                  {}
                   {user._id === post.author?._id && (
                     <>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleEdit(); }}
-                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 w-full text-left text-sm"
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
                       >
                         <Edit className="w-4 h-4" />
                         <span>Sửa bài viết</span>
@@ -645,18 +708,26 @@ const PostCard: React.FC<PostCardProps> = ({
 
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 w-full text-left text-sm"
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
                       >
                         <Trash2 className="w-4 h-4" />
                         <span>Xóa bài viết</span>
                       </button>
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleLock(); }}
+                        className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
+                      >
+                        {isLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                        <span>{isLocked ? "Mở khóa bình luận" : "Khóa bình luận"}</span>
+                      </button>
                     </>
                   )}
 
-                  {/* Báo cáo luôn hiển thị */}
+                  {}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleReport(); }}
-                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 w-full text-left text-sm"
+                    className="flex items-center space-x-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 w-full text-left text-sm text-gray-700 dark:text-gray-200"
                   >
                     <MessageSquare className="w-4 h-4" />
                     <span>Báo cáo</span>
@@ -668,31 +739,31 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       </div>
 
-      {/* Nội dung */}
+      {}
       <div className="px-3 pb-2 cursor-pointer" onClick={handleNavigate}>
         {renderPostContent()}
       </div>
 
-      {/* Thanh hành động */}
+      {}
       <div className="flex items-center px-2 pb-2 space-x-1">
         <div
           className={`flex items-center rounded-full px-2 py-1 transition-all ${userVote === "up"
-            ? "bg-orange-200"
+            ? "bg-green-200 dark:bg-green-900/30"
             : userVote === "down"
-              ? "bg-blue-200"
-              : "bg-gray-200"
+              ? "bg-red-200 dark:bg-red-900/30"
+              : "bg-gray-200 dark:bg-gray-700"
             } ${!canInteract ? "opacity-60 cursor-not-allowed" : ""}`}
         >
           <button
             onClick={(e) => { e.stopPropagation(); handleVote("upvote"); }}
             disabled={!canInteract}
-            className={`p-1 rounded-full ${userVote === "up" ? "text-orange-500" : "text-gray-600"
+            className={`p-1 rounded-full ${userVote === "up" ? "text-green-600" : "text-gray-600 dark:text-gray-300"
               } ${!canInteract ? "cursor-not-allowed" : ""}`}
           >
             <ArrowUp className="w-5 h-5" />
           </button>
 
-          <span className="text-xs font-bold px-2 text-gray-900 min-w-[28px] text-center">
+          <span className="text-xs font-bold px-2 text-gray-900 dark:text-gray-100 min-w-[28px] text-center">
             {formatNumber(
               (localVotes.upvotes?.length || 0) -
               (localVotes.downvotes?.length || 0)
@@ -702,14 +773,14 @@ const PostCard: React.FC<PostCardProps> = ({
           <button
             onClick={(e) => { e.stopPropagation(); handleVote("downvote"); }}
             disabled={!canInteract}
-            className={`p-1 rounded-full ${userVote === "down" ? "text-blue-600" : "text-gray-600"
+            className={`p-1 rounded-full ${userVote === "down" ? "text-red-500" : "text-gray-600 dark:text-gray-300"
               } ${!canInteract ? "cursor-not-allowed" : ""}`}
           >
             <ArrowDown className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="bg-gray-200 flex items-center rounded-full hover:bg-gray-300">
+        <div className="bg-gray-200 dark:bg-gray-700 flex items-center rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300">
           <button
             className="flex items-center space-x-2 px-3 py-1.5"
             onClick={handleNavigate}
@@ -721,7 +792,7 @@ const PostCard: React.FC<PostCardProps> = ({
           </button>
         </div>
 
-        <div className="bg-gray-200 flex items-center rounded-full hover:bg-gray-300">
+        <div className="bg-gray-200 dark:bg-gray-700 flex items-center rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300">
           <button
             className="flex items-center space-x-2 px-3 py-1.5"
             onClick={(e) => { e.stopPropagation(); handleShare(); }}
@@ -748,7 +819,7 @@ const PostCard: React.FC<PostCardProps> = ({
           onClose={() => setShareModalOpen(false)}
           onShared={() => {
             console.log("Chia sẻ thành công!");
-            // Có thể thêm logic reload list bài viết hoặc thông báo toast
+            
           }}
         />
       )}

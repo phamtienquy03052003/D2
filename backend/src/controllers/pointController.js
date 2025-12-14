@@ -1,7 +1,11 @@
 import UserPoint from "../models/UserPoint.js";
 import PointHistory from "../models/PointHistory.js";
 
-// Lấy tổng điểm người dùng
+
+/**
+ * Lấy tổng điểm của User
+ * - Nếu chưa có bản ghi điểm, sẽ tạo mới với 0 điểm.
+ */
 export const getUserPoints = async (req, res) => {
   try {
     let userPoint = await UserPoint.findOne({ user: req.user.id });
@@ -15,7 +19,10 @@ export const getUserPoints = async (req, res) => {
   }
 };
 
-// Lấy danh sách lịch sử điểm
+
+/**
+ * Lấy lịch sử điểm thưởng (Cộng/Trừ)
+ */
 export const getUserPointHistory = async (req, res) => {
   try {
     const history = await PointHistory.find({ user: req.user.id }).sort({ createdAt: -1 });
@@ -25,29 +32,12 @@ export const getUserPointHistory = async (req, res) => {
   }
 };
 
-// Lấy top 10 người đóng góp
-export const getTopContributors = async (req, res) => {
-  try {
-    const top = await UserPoint.find()
-      .sort({ totalPoints: -1 })
-      .limit(10)
-      .populate("user", "name avatar email");
 
-    // Format lại dữ liệu trả về cho khớp với frontend cũ nếu cần, hoặc trả về structure mới
-    const formatted = top.map(tp => ({
-      _id: tp.user._id,
-      name: tp.user.name,
-      avatar: tp.user.avatar,
-      totalPoints: tp.totalPoints
-    }));
 
-    res.json(formatted);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
 
-// Lấy tất cả điểm (admin) - Trả về danh sách UserPoint
+/**
+ * Lấy tổng điểm của tất cả User (Admin)
+ */
 export const adminGetAllPoints = async (req, res) => {
   try {
     const points = await UserPoint.find()
@@ -59,17 +49,21 @@ export const adminGetAllPoints = async (req, res) => {
   }
 };
 
-// Xóa record điểm (admin) - Ở đây hiểu là reset điểm hoặc xóa history?
-// Tạm thời implement xóa history record
+
+
+/**
+ * Xóa lịch sử điểm (Admin)
+ * - Tự động cập nhật lại tổng điểm của User (Revert transaction).
+ */
 export const adminDeletePointHistory = async (req, res) => {
   try {
     const { historyId } = req.params;
     const history = await PointHistory.findById(historyId);
     if (!history) return res.status(404).json({ message: "Không tìm thấy lịch sử điểm" });
 
-    // Khi xóa history, có trừ lại điểm user không? 
-    // Thường admin xóa log thì có thể muốn revert point.
-    // Logic: Nếu xóa log + điểm, thì trừ lại. Nếu xóa log - điểm, thì cộng lại.
+
+
+
 
     const userPoint = await UserPoint.findOne({ user: history.user });
     if (userPoint) {

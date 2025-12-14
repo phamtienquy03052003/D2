@@ -28,13 +28,13 @@ const UserProfileInfo: React.FC<UserProfileInfoProps> = ({
         <div className="flex justify-between items-center">
           <span className="font-medium">Riêng tư:</span>
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${user.isPrivate ? "text-orange-500" : "text-gray-500"}`}>
+            <span className={`text-sm font-medium ${user.isPrivate ? "text-cyan-500" : "text-gray-500"}`}>
               {user.isPrivate ? "Bật" : "Tắt"}
             </span>
             <button
               onClick={onPrivacyChange}
               disabled={savingPrivacy}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${user.isPrivate ? "bg-orange-500" : "bg-gray-200"
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 ${user.isPrivate ? "bg-cyan-500" : "bg-gray-200"
                 }`}
             >
               <span

@@ -15,12 +15,12 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated } = useAuth(); // giả sử import từ AuthContext
+  const { user, isAuthenticated } = useAuth(); 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const hasUnread = notifications.some((n) => !n.isRead);
 
   useEffect(() => {
-    if (!isAuthenticated) return; // chỉ fetch khi đã đăng nhập
+    if (!isAuthenticated) return; 
 
     (async () => {
       try {

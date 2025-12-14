@@ -1,5 +1,7 @@
 # Node modules
 node_modules/
+/backend/node_modules
+/web/node_modules
 
 # Logs
 logs/
@@ -13,9 +15,12 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+/backend/.env
+/web/.env 
 
 # Build / output
 dist/
+/web/dist
 build/
 coverage/
 

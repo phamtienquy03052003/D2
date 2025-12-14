@@ -52,7 +52,7 @@ export const postService = {
     return res.data as CreatePostResponse;
   },
 
-  async update(id: string, payload: Partial<Post>): Promise<Post> {
+  async update(id: string, payload: any): Promise<Post> {
     const res = await postApi.update(id, payload);
     return res.data as Post;
   },
@@ -120,6 +120,11 @@ export const postService = {
   async getDislikedPosts(): Promise<Post[]> {
     const res = await postApi.getDislikedPosts();
     return normalizeList(res.data);
+  },
+
+  async toggleLock(id: string): Promise<any> {
+    const res = await postApi.toggleLock(id);
+    return res.data;
   },
 };
 

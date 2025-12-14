@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Header from "../../components/user/Header";
 import Sidebar from "../../components/user/Sidebar";
-import RightSidebar from "../../components/user/RightSidebar";
+
 import { authService } from "../../services/authService";
 
 const ForgotPassword: React.FC = () => {
@@ -26,13 +26,13 @@ const ForgotPassword: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
+    <div className="min-h-screen bg-white dark:bg-[#0f1117] flex flex-col">
+      {}
       <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
       />
 
       <div className="flex flex-1">
-        {/* Sidebar */}
+        {}
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
@@ -40,15 +40,15 @@ const ForgotPassword: React.FC = () => {
           onItemClick={setActiveMenuItem}
         />
 
-        {/* Main Content */}
+        {}
         <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-10 lg:ml-[calc(64px+16rem)]">
           <div className="flex gap-6">
             <div className="flex-1 max-w-3xl mx-auto">
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-8">
-                <h1 className="text-2xl font-semibold text-center text-gray-900 mb-2">
+              <div className="bg-white dark:bg-[#1a1d25] rounded-xl shadow-md border border-gray-200 dark:border-gray-800 p-8">
+                <h1 className="text-2xl font-semibold text-center text-gray-900 dark:text-white mb-2">
                   Quên mật khẩu
                 </h1>
-                <p className="text-center text-gray-600 mb-6 text-sm">
+                <p className="text-center text-gray-600 dark:text-gray-400 mb-6 text-sm">
                   Nhập địa chỉ email của bạn để nhận liên kết đặt lại mật khẩu.
                 </p>
 
@@ -59,26 +59,23 @@ const ForgotPassword: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#272a33] dark:text-white"
                   />
 
                   <button
                     type="submit"
                     disabled={loading || !email}
-                    className="w-full py-3 bg-orange-500 text-white rounded-full font-bold text-sm hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 bg-cyan-500 text-white rounded-full font-bold text-sm hover:bg-cyan-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? "Đang gửi..." : "Gửi liên kết đặt lại"}
                   </button>
                 </form>
 
                 {message && (
-                  <p className="mt-4 text-center text-sm text-gray-700">{message}</p>
+                  <p className="mt-4 text-center text-sm text-gray-700 dark:text-gray-300">{message}</p>
                 )}
               </div>
             </div>
-
-            {/* Right Sidebar */}
-            <RightSidebar />
           </div>
         </main>
       </div>

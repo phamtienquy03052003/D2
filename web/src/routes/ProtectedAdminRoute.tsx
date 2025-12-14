@@ -9,7 +9,7 @@ interface Props {
 const ProtectedAdminRoute: React.FC<Props> = ({ children }) => {
   const { user } = useAuth();
 
-  // 🔹 Nếu đang load user từ localStorage
+  
   if (user === null && localStorage.getItem("accessToken")) {
     return (
       <div className="flex items-center justify-center h-screen text-lg text-gray-500">
@@ -18,17 +18,17 @@ const ProtectedAdminRoute: React.FC<Props> = ({ children }) => {
     );
   }
 
-  // 🔹 Nếu chưa đăng nhập
+  
   if (!user) {
     return <Navigate to="/trang-chu" replace />;
   }
 
-  // 🔹 Nếu không phải admin
+  
   if (user.role !== "admin") {
     return <Navigate to="/trang-chu" replace />;
   }
 
-  // 🔹 Nếu là admin → cho phép truy cập
+  
   return <>{children}</>;
 };
 

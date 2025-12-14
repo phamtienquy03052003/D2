@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema lịch sử kinh nghiệm (XP History)
+ * - Ghi lại việc nhận XP để lên cấp.
+ */
 const experienceHistorySchema = new mongoose.Schema(
     {
         user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

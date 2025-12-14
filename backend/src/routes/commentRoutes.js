@@ -16,6 +16,9 @@ import {
     moderateComment,
     markEditedCommentSeen
 } from "../controllers/commentController.js";
+import { validateCreateComment, validateUpdateComment } from "../validators/commentValidator.js";
+import { validateRequest } from "../middleware/validationMiddleware.js";
+import { uploadCommentImage } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -32,9 +35,9 @@ router.post("/:commentId/moderate", verifyToken, moderateComment);
 router.post("/:commentId/seen", verifyToken, markEditedCommentSeen);
 
 router.get("/:postId", getCommentsByPost);
-router.post("/:postId", verifyToken, createComment);
+router.post("/:postId", uploadCommentImage, verifyToken, validateCreateComment, validateRequest, createComment);
 router.post("/:commentId/react", verifyToken, toggleLikeDislike);
-router.put("/:commentId", verifyToken, updateComment);
+router.put("/:commentId", uploadCommentImage, verifyToken, validateUpdateComment, validateRequest, updateComment);
 router.delete("/:commentId", verifyToken, deleteComment);
 
 export default router;

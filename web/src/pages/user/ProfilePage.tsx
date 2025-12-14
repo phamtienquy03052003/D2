@@ -4,6 +4,7 @@ import {
   Flower2,
   MessageSquare
 } from "lucide-react";
+
 import UserProfileHeader from "../../components/user/UserProfileHeader";
 import { useAuth } from "../../context/AuthContext";
 import { postService } from "../../services/postService";
@@ -19,10 +20,13 @@ import type { Comment } from "../../types/Comment";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import JoinedCommunitiesModal from "../../components/user/JoinedCommunitiesModal";
-import ExperienceHistoryModal from "../../components/user/ExperienceHistoryModal";
-import FollowerListModal from "../../components/user/FollowerListModal";
+import ExperienceHistoryModal from "../../components/user/ProfilePage/ExperienceHistoryModal";
+import FollowerListModal from "../../components/user/ProfilePage/FollowerListModal";
 import { getAccountAge, getUserAvatarUrl } from "../../utils/userUtils";
 import { timeAgo } from "../../utils/dateUtils";
+import SocialLinksModal from "../../components/user/ProfilePage/SocialLinksModal";
+import ProfileRightSidebar from "../../components/user/ProfilePage/ProfileRightSidebar";
+import ScrollableTabs from "../../components/common/ScrollableTabs";
 
 type TabType = "Bài đăng" | "Bình luận" | "Đã lưu" | "Lịch sử" | "Bị ẩn" | "Đã thích" | "Đã không thích";
 
@@ -45,20 +49,21 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Modal states
+  
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [contributionModalOpen, setContributionModalOpen] = useState(false);
   const [experienceHistoryModalOpen, setExperienceHistoryModalOpen] = useState(false);
   const [followerListModalOpen, setFollowerListModalOpen] = useState(false);
+  const [socialLinksModalOpen, setSocialLinksModalOpen] = useState(false);
   const [contributionStats, setContributionStats] = useState({ posts: 0, comments: 0 });
   const [ownedCommunityCount, setOwnedCommunityCount] = useState(0);
 
-  // Helper functions
+  
 
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user?._id) return;
     setLoading(true);
     setError(null);
     setPosts([]);
@@ -119,7 +124,7 @@ const ProfilePage: React.FC = () => {
         }
       }
 
-      // Check for race condition
+      
       if (activeTabRef.current !== activeTab) return;
 
       setPosts(postsData);
@@ -142,7 +147,7 @@ const ProfilePage: React.FC = () => {
     fetchData();
   }, [fetchData]);
 
-  // Fetch latest user data
+  
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -155,9 +160,9 @@ const ProfilePage: React.FC = () => {
     fetchUser();
   }, []);
 
-  // Fetch contribution stats
+  
   useEffect(() => {
-    if (!user) return;
+    if (!user?._id) return;
     const fetchStats = async () => {
       try {
         const [postsRes, commentsRes] = await Promise.all([
@@ -181,7 +186,7 @@ const ProfilePage: React.FC = () => {
     fetchStats();
   }, [user]);
 
-  // Fetch owned communities count
+  
   useEffect(() => {
     const fetchOwnedCommunities = async () => {
       try {
@@ -194,7 +199,7 @@ const ProfilePage: React.FC = () => {
     fetchOwnedCommunities();
   }, []);
 
-  const handleEditPost = async (updatedData: { title: string; content: string }) => {
+  const handleEditPost = async (updatedData: any) => {
     if (!editingPost) return;
     try {
       const updated = await postService.update(editingPost._id, updatedData);
@@ -202,7 +207,7 @@ const ProfilePage: React.FC = () => {
       setEditingPost(null);
     } catch (error) {
       console.error("Failed to update post:", error);
-      alert("Không thể cập nhật bài viết");
+      
     }
   };
 
@@ -214,13 +219,27 @@ const ProfilePage: React.FC = () => {
       setDeletingPostId(null);
     } catch (error) {
       console.error("Failed to delete post:", error);
-      alert("Không thể xóa bài viết");
+      
     }
   };
 
   const handleUnsave = (postId: string) => {
     if (activeTab === "Đã lưu") {
       setPosts(prev => prev.filter(p => p._id !== postId));
+    }
+  };
+
+  const handleUpdateSocialLinks = async (newLinks: any) => {
+    if (!user) return;
+    try {
+      const updatedUser = await userService.updateProfile({
+        name: user.name,
+        socialLinks: newLinks
+      });
+      setUser(updatedUser);
+    } catch (error) {
+      console.error("Failed to update social links:", error);
+      
     }
   };
 
@@ -245,26 +264,26 @@ const ProfilePage: React.FC = () => {
   };
 
   const renderCommentItem = (comment: Comment) => (
-    <div key={comment._id} className="bg-white p-4 rounded-lg border border-gray-200 mb-4 hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => {
-      const postId = typeof comment.post === 'string' ? comment.post : comment.post._id;
-      navigate(`/chi-tiet-bai-viet/${postId}`);
+    <div key={comment._id} className="bg-white dark:bg-[#1a1d25] p-4 rounded-lg border border-gray-200 dark:border-gray-800 mb-4 hover:bg-gray-50 dark:hover:bg-[#1e212b] transition-colors cursor-pointer" onClick={() => {
+      const postSlug = typeof comment.post === 'string' ? comment.post : (comment.post.slug || comment.post._id);
+      navigate(`/chi-tiet-bai-viet/${postSlug}`);
     }}>
       <div className="flex items-center gap-2 mb-2">
-        <MessageSquare size={16} className="text-gray-500" />
-        <span className="text-xs text-gray-500">
-          Đã bình luận trong <span className="font-semibold text-gray-900">bài viết</span> • {timeAgo(comment.createdAt)}
+        <MessageSquare size={16} className="text-gray-500 dark:text-gray-400" />
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          Đã bình luận trong <span className="font-semibold text-gray-900 dark:text-gray-100">bài viết</span> • {timeAgo(comment.createdAt)}
         </span>
       </div>
-      <div className="text-sm text-gray-800 line-clamp-3">{comment.content}</div>
+      <div className="text-sm text-gray-800 dark:text-gray-200 line-clamp-3">{comment.content}</div>
     </div>
   );
 
   return (
     <UserLayout activeMenuItem="profile">
       <div className="w-full max-w-[1200px] mx-auto flex flex-col lg:flex-row gap-6 py-6">
-        {/* Left Column: Header, Tabs, Feed */}
+        {}
         <div className="flex-1 min-w-0">
-          {/* Header Info */}
+          {}
           <UserProfileHeader
             user={user}
             onAvatarClick={() => { }}
@@ -273,27 +292,29 @@ const ProfilePage: React.FC = () => {
             onOpenHistory={() => setExperienceHistoryModalOpen(true)}
           />
 
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6 overflow-x-auto">
-            <div className="flex space-x-1 min-w-max">
-              {(["Bài đăng", "Bình luận", "Đã lưu", "Lịch sử", "Bị ẩn", "Đã thích", "Đã không thích"] as TabType[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 cursor-pointer transition-colors ${activeTab === tab
-                    ? "border-black text-black bg-gray-100 rounded-t-md"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-md"
-                    }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+          {}
+          <div className="block lg:hidden mb-6">
+            <ProfileRightSidebar
+              user={user}
+              displayUser={displayUser}
+              ownedCommunityCount={ownedCommunityCount}
+              onOpenFollowerList={() => setFollowerListModalOpen(true)}
+              onOpenContributionModal={() => setContributionModalOpen(true)}
+              onOpenActiveCommunities={() => setActiveCommunitiesModalOpen(true)}
+              onOpenSocialLinksModal={() => setSocialLinksModalOpen(true)}
+            />
           </div>
 
+          {}
+          <ScrollableTabs
+            tabs={["Bài đăng", "Bình luận", "Đã lưu", "Lịch sử", "Bị ẩn", "Đã thích", "Đã không thích"]}
+            activeTab={activeTab}
+            onTabClick={(tab) => setActiveTab(tab as TabType)}
+          />
 
 
-          {/* Main Content Area */}
+
+          {}
           <div>
             {loading ? (
               <LoadingSpinner />
@@ -311,7 +332,7 @@ const ProfilePage: React.FC = () => {
                       <PostCard
                         key={post._id}
                         post={post}
-                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post._id}`)}
+                        onNavigate={() => navigate(`/chi-tiet-bai-viet/${post.slug || post._id}`)}
                         onEdit={(p) => setEditingPost(p)}
                         onDelete={(id) => setDeletingPostId(id)}
                         onUnsave={handleUnsave}
@@ -322,89 +343,48 @@ const ProfilePage: React.FC = () => {
               </>
             )}
 
-            {/* Liked/Disliked Comments Section */}
+            {}
             {(activeTab === "Đã thích" && likedComments.length > 0) && (
               <>
-                <h3 className="font-bold text-gray-700 mb-2 mt-6">Bình luận</h3>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-2 mt-6">Bình luận</h3>
                 {likedComments.map(renderCommentItem)}
               </>
             )}
             {(activeTab === "Đã không thích" && dislikedComments.length > 0) && (
               <>
-                <h3 className="font-bold text-gray-700 mb-2 mt-6">Bình luận</h3>
+                <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-2 mt-6">Bình luận</h3>
                 {dislikedComments.map(renderCommentItem)}
               </>
             )}
 
-            {/* Empty State */}
+            {}
             {posts.length === 0 && comments.length === 0 && likedComments.length === 0 && dislikedComments.length === 0 && (
               <div className="py-10 text-center">
-                <div className="inline-flex justify-center items-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <div className="inline-flex justify-center items-center w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full mb-4">
                   <Flower2 size={32} className="text-gray-400" />
                 </div>
-                <p className="text-gray-500 font-medium">Chưa có nội dung nào</p>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">Chưa có nội dung nào</p>
               </div>
             )}
 
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-full lg:w-80 flex-shrink-0">
-          <div className="bg-gray-100 rounded-3xl overflow-hidden sticky top-4">
-            <div className="p-4">
-              <h2 className="text-base font-bold text-gray-900 mb-2">{displayUser.name}</h2>
-
-              <div
-                className="flex items-center gap-2 text-xs text-gray-500 mb-4 cursor-pointer"
-                onClick={() => setFollowerListModalOpen(true)}
-              >
-                <span>{user.followerCount || 0} người theo dõi</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-y-4 mb-6">
-
-                <div
-                  className="cursor-pointer"
-                  onClick={() => setContributionModalOpen(true)}
-                >
-                  <div className="text-sm font-bold text-gray-900">
-                    {displayUser.contributions}
-                  </div>
-                  <div className="text-xs text-gray-500">Lượt đóng góp</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">{displayUser.cakeDay}</div>
-                  <div className="text-xs text-gray-500">Tuổi</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-gray-900">
-                    {ownedCommunityCount} / {(user.level || 0) + 1}
-                  </div>
-                  <div className="text-xs text-gray-500">Sở hữu</div>
-                </div>
-                <div
-                  className="cursor-pointer"
-                  onClick={() => setActiveCommunitiesModalOpen(true)}
-                >
-                  <div className="text-sm font-bold text-gray-900">{displayUser.communityCount}</div>
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    Đang hoạt động trong
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <button className="text-sm font-medium text-blue-600 hover:underline">
-                  Thêm liên kết xã hội
-                </button>
-              </div>
-            </div>
-          </div>
+        {}
+        <div className="hidden lg:block w-full lg:w-80 flex-shrink-0">
+          <ProfileRightSidebar
+            user={user}
+            displayUser={displayUser}
+            ownedCommunityCount={ownedCommunityCount}
+            onOpenFollowerList={() => setFollowerListModalOpen(true)}
+            onOpenContributionModal={() => setContributionModalOpen(true)}
+            onOpenActiveCommunities={() => setActiveCommunitiesModalOpen(true)}
+            onOpenSocialLinksModal={() => setSocialLinksModalOpen(true)}
+          />
         </div>
       </div>
 
-      {/* Modals */}
+      {}
       {
         editingPost && (
           <EditPostModal
@@ -453,6 +433,15 @@ const ProfilePage: React.FC = () => {
         isOpen={followerListModalOpen}
         onClose={() => setFollowerListModalOpen(false)}
       />
+
+      {user && (
+        <SocialLinksModal
+          isOpen={socialLinksModalOpen}
+          onClose={() => setSocialLinksModalOpen(false)}
+          socialLinks={user.socialLinks}
+          onSave={handleUpdateSocialLinks}
+        />
+      )}
     </UserLayout >
   );
 };

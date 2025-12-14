@@ -54,30 +54,24 @@ const JoinedCommunitiesModal: React.FC<JoinedCommunitiesModalProps> = ({
         setActionLoading(community._id);
         try {
             if (community.isPending) {
-                // Cancel request
+                
                 await communityService.leave(community._id);
-                toast.success("Đã hủy yêu cầu tham gia");
                 setCommunities(prev => prev.map(c =>
                     c._id === community._id ? { ...c, isPending: false } : c
                 ));
             } else if (community.isMember) {
-                // Leave
+                
                 await communityService.leave(community._id);
-                toast.success("Đã rời cộng đồng");
                 setCommunities(prev => prev.map(c =>
                     c._id === community._id ? { ...c, isMember: false, membersCount: (c.membersCount || 1) - 1 } : c
                 ));
             } else {
-                // Join
+                
                 await communityService.join(community._id);
-                toast.success("Đã gửi yêu cầu tham gia");
-                // We don't know if it's pending or joined without checking response or refetching.
-                // For accuracy, let's refetch.
                 fetchCommunities();
             }
         } catch (error) {
             console.error("Action failed:", error);
-            toast.error("Có lỗi xảy ra");
         } finally {
             setActionLoading(null);
         }
@@ -86,31 +80,31 @@ const JoinedCommunitiesModal: React.FC<JoinedCommunitiesModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-xl">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-[#1a1d25] rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col shadow-xl">
+                {}
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h2>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
+                        className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
                     >
                         <X size={20} />
                     </button>
                 </div>
 
-                {/* Content */}
+                {}
                 <div className="flex-1 overflow-y-auto p-4">
-                    <p className="text-sm text-gray-500 mb-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                         Một số cộng đồng có thể bị ẩn do trạng thái riêng tư của họ.
                     </p>
 
                     {loading ? (
                         <div className="flex justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
                         </div>
                     ) : communities.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                             Không có cộng đồng nào hiển thị.
                         </div>
                     ) : (

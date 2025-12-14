@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema quản lý thành viên trong hội thoại
+ * - Dùng để lưu trạng thái đọc tin nhắn (lastReadMessageId).
+ */
 const conversationMemberSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -12,6 +16,8 @@ const conversationMemberSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    // Tin nhắn cuối cùng đã đọc
     lastReadMessageId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Message",

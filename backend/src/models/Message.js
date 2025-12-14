@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
 
+/**
+ * Schema tin nhắn (Chat)
+ */
 const messageSchema = new mongoose.Schema(
   {
     conversationId: {
@@ -22,6 +25,8 @@ const messageSchema = new mongoose.Schema(
       default: "text",
     },
     fileUrl: { type: String },
+
+    // Thả cảm xúc tin nhắn
     reactions: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

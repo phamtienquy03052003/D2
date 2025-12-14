@@ -65,12 +65,17 @@ export const communityService = {
     return data as Community[];
   },
 
+  async getTopCommunities(): Promise<Community[]> {
+    const data = await communityApi.getTopCommunities();
+    return data as Community[];
+  },
+
   async create(payload: { name: string; description: string }): Promise<Community> {
     const data = await communityApi.create(payload);
     return data as Community;
   },
 
-  async update(id: string, payload: Partial<Community>): Promise<Community> {
+  async update(id: string, payload: Partial<Community> | FormData): Promise<Community> {
     const data = await communityApi.update(id, payload);
     return data as Community;
   },
@@ -138,6 +143,16 @@ export const communityService = {
     await communityApi.removeModerator(communityId, memberId);
   },
 
+  async getModeratorLogs(communityId: string, page = 1, limit = 20): Promise<any[]> {
+    const data = await communityApi.getModeratorLogs(communityId, page, limit);
+    return data as any[];
+  },
+
+  async getCommunityStats(id: string, timeRange: string): Promise<any> {
+    const data = await communityApi.getCommunityStats(id, timeRange);
+    return data;
+  },
+
   async adminGetAll(): Promise<Community[]> {
     const data = await communityApi.adminGetAll();
     return data as Community[];
@@ -155,6 +170,14 @@ export const communityService = {
   async toggleNotification(id: string): Promise<{ isSubscribed: boolean }> {
     const data = await communityApi.toggleNotification(id);
     return data as { isSubscribed: boolean };
+  },
+
+  async logVisit(id: string): Promise<void> {
+    await communityApi.logVisit(id);
+  },
+
+  async inviteMember(communityId: string, userId: string): Promise<void> {
+    await communityApi.inviteMember(communityId, userId);
   },
 };
 

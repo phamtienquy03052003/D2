@@ -1,4 +1,4 @@
-// src/components/user/Header.tsx
+
 import React from "react";
 import {
   Search,
@@ -7,11 +7,15 @@ import {
   MessageSquare,
   Menu,
 } from "lucide-react";
-import { useAuth, socket } from "../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
+import { socket } from "../../socket";
 import { useNavigate } from "react-router-dom";
 import { searchService } from "../../services/searchService";
 import { useNotifications } from "../../context/NotificationContext";
-import { getUserAvatarUrl } from "../../utils/userUtils";
+import UserAvatar from "../common/UserAvatar";
+import UserName from "../common/UserName";
+import LogoIcon from "../common/LogoIcon";
+import LoadingSpinner from "../common/LoadingSpinner";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -21,6 +25,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const {
     user,
     isAuthenticated,
+    isLoading,
     logout,
     setUser,
     openLogin,
@@ -37,11 +42,11 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const [showSearchDropdown, setShowSearchDropdown] = React.useState(false);
   const searchTimeout = React.useRef<any>(null);
 
-  // User Dropdown State
+  
   const [isUserDropdownOpen, setIsUserDropdownOpen] = React.useState(false);
   const userDropdownRef = React.useRef<HTMLDivElement>(null);
 
-  // Click outside to close user dropdown
+  
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -63,11 +68,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     navigate("/tao-bai-viet");
   };
 
-  // ============================ SOCKET POINTS ============================
+  
   React.useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    socket.emit("joinUser", user._id);
+    if (!isAuthenticated || !user) return;
+
+    
 
     const handlePointAdded = (data: any) => {
       if (!user) return;
@@ -84,11 +91,13 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     };
   }, [isAuthenticated, user?._id, setUser]);
 
-  // ========================== SOCKET NOTIFICATIONS ==========================
+  
   React.useEffect(() => {
     if (!isAuthenticated || !user) return;
 
-    socket.emit("joinUser", user._id);
+    if (!isAuthenticated || !user) return;
+
+    
 
     const handleNewNotification = (data: any) => {
       if (!notificationsContext) return;
@@ -99,7 +108,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       });
     };
 
-    // Clear old listener trước khi thêm cái mới
+    
     socket.off("newNotification");
     socket.on("newNotification", handleNewNotification);
 
@@ -108,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     };
   }, [isAuthenticated, user?._id, notificationsContext]);
 
-  // ============================ SEARCH ============================
+  
   React.useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
 
@@ -129,24 +138,25 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   }, [query]);
 
   return (
-    <header className="bg-white border-b border-gray-300 sticky top-0 z-50 shadow-sm">
+    <header className="bg-white dark:bg-[#0f1117] border-b border-gray-300 dark:border-gray-800 sticky top-0 z-50 shadow-sm transition-colors duration-200">
       <div className="max-w-full mx-auto px-4">
         <div className="flex items-center justify-between h-20">
 
-          {/* Sidebar button + Logo */}
+          {}
           <div className="flex items-center space-x-2">
             <button
               onClick={onToggleSidebar}
-              className="lg:hidden p-1 hover:bg-gray-100 rounded"
+              className="lg:hidden p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
             >
-              <Menu className="w-5 h-5 text-gray-600" />
+              <Menu className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
-            <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">
-              My Website
+            <LogoIcon className="ml-2 h-12 w-12 hidden sm:block" />
+            <span className="text-3xl font-bold leading-none text-cyan-400 dark:text-white hidden sm:block">
+              ĐàmĐạo
             </span>
           </div>
 
-          {/* ====================== SEARCH BAR ====================== */}
+          {}
           <div className="relative flex-1 max-w-2xl mx-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
@@ -156,30 +166,30 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => query && setShowSearchDropdown(true)}
               onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-              className="w-full pl-10 pr-4 py-1.5 bg-gray-100 border border-gray-300 rounded-full text-sm focus:border-blue-500 focus:bg-white focus:outline-none transition-all"
+              className="w-full pl-10 pr-4 py-1.5 bg-gray-100 dark:bg-[#1a1d25] border border-gray-300 dark:border-gray-700 rounded-full text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:border-blue-500 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-[#1a1d25] focus:outline-none transition-all"
             />
 
             {showSearchDropdown && results && (
-              <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+              <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-[#1a1d25] border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
 
-                {/* Posts */}
+                {}
                 {results.posts?.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500">
+                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Bài viết
                     </div>
                     {results.posts.map((p: any) => (
                       <div
                         key={p._id}
                         onClick={() => {
-                          navigate(`/post/${p._id}`);
+                          navigate(`/chi-tiet-bai-viet/${p.slug || p._id}`);
                           setShowSearchDropdown(false);
                           setQuery("");
                         }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                       >
-                        <p className="font-medium text-sm">{p.title}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{p.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           bởi {p.author?.name || "Ẩn danh"}{" "}
                           {p.community && `· ${p.community.name}`}
                         </p>
@@ -188,24 +198,24 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   </div>
                 )}
 
-                {/* Communities */}
+                {}
                 {results.communities?.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500">
+                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Cộng đồng
                     </div>
                     {results.communities.map((c: any) => (
                       <div
                         key={c._id}
                         onClick={() => {
-                          navigate(`/congdong/${c._id}`);
+                          navigate(`/cong-dong/${c.slug || c._id}`);
                           setShowSearchDropdown(false);
                           setQuery("");
                         }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                       >
-                        <p className="font-medium text-sm">{c.name}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{c.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           {c.description?.slice(0, 60)}
                         </p>
                       </div>
@@ -213,33 +223,33 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   </div>
                 )}
 
-                {/* Users */}
+                {}
                 {results.users?.length > 0 && (
                   <div>
-                    <div className="px-3 py-1 text-xs font-semibold text-gray-500">
+                    <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400">
                       Người dùng
                     </div>
                     {results.users.map((u: any) => (
                       <div
                         key={u._id}
                         onClick={() => {
-                          navigate(`/user/${u._id}`);
+                          navigate(`/nguoi-dung/${u.slug || u._id}`);
                           setShowSearchDropdown(false);
                           setQuery("");
                         }}
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                        className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
                       >
-                        <p className="font-medium text-sm">{u.name || u.email}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{u.name || u.email}</p>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* No results */}
+                {}
                 {results.posts?.length === 0 &&
                   results.communities?.length === 0 &&
                   results.users?.length === 0 && (
-                    <div className="p-3 text-gray-500 text-sm text-center">
+                    <div className="p-3 text-gray-500 dark:text-gray-400 text-sm text-center">
                       Không tìm thấy kết quả phù hợp.
                     </div>
                   )}
@@ -247,22 +257,26 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             )}
           </div>
 
-          {/* ====================== RIGHT SIDE ====================== */}
+          {}
           <div className="flex items-center space-x-2">
 
-            {/* LOGIN / REGISTER */}
-            {!isAuthenticated ? (
+            {}
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <LoadingSpinner />
+              </div>
+            ) : !isAuthenticated ? (
               <>
                 <button
                   onClick={openLogin}
-                  className="px-6 py-1.5 text-orange-500 font-bold text-sm border border-orange-500 rounded-full hover:bg-orange-50 transition-all"
+                  className="px-6 py-1.5 text-cyan-500 font-bold text-sm border border-cyan-500 rounded-full hover:bg-cyan-50 dark:hover:bg-cyan-900/30 transition-all"
                 >
                   Đăng nhập
                 </button>
 
                 <button
                   onClick={openRegister}
-                  className="px-6 py-1.5 bg-orange-500 text-white font-bold text-sm rounded-full hover:bg-orange-600 transition-all"
+                  className="px-6 py-1.5 bg-cyan-500 text-white font-bold text-sm rounded-full hover:bg-cyan-600 transition-all"
                 >
                   Đăng ký
                 </button>
@@ -272,15 +286,15 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
                 <button
                   onClick={handleCreatePost}
-                  className="p-2 hover:bg-gray-100 rounded"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-700 dark:text-gray-200"
                 >
                   <Plus className="w-5 h-5" />
                 </button>
 
-                {/* NOTIFICATION */}
+                {}
                 <div className="relative">
                   <button
-                    className="p-2 hover:bg-gray-100 rounded relative"
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded relative text-gray-700 dark:text-gray-200"
                     onClick={() => navigate("/thong-bao")}
                   >
                     <Bell className="w-5 h-5" />
@@ -291,33 +305,29 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 </div>
 
                 <button
-                  className="p-2 hover:bg-gray-100 rounded"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-gray-700 dark:text-gray-200"
                   onClick={() => navigate("/tin-nhan")}
                 >
                   <MessageSquare className="w-5 h-5" />
                 </button>
 
-                {/* USER DROPDOWN */}
+                {}
                 <div className="relative" ref={userDropdownRef}>
                   <button
                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
-                    className="flex items-center space-x-1 p-1 hover:bg-gray-100 rounded transition-colors"
+                    className="flex items-center space-x-1 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                   >
-                    <img
-                      src={getUserAvatarUrl(user)}
-                      alt="Avatar"
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
+                    <UserAvatar user={user} size="w-8 h-8" />
                   </button>
 
                   {isUserDropdownOpen && (
-                    <div className="absolute right-0 mt-1 w-56 bg-white rounded border border-gray-300 shadow-lg z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="absolute right-0 mt-1 w-56 bg-white dark:bg-[#1a1d25] rounded border border-gray-300 dark:border-gray-700 shadow-lg z-50 animate-in fade-in zoom-in-95 duration-100">
                       <div className="py-2">
-                        <div className="px-4 py-2 border-b border-gray-200">
-                          <p className="text-sm font-medium text-gray-900">
-                            {user?.name}
+                        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <UserName user={user} />
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Điểm: {user?.totalPoints || 0}
                           </p>
                         </div>
@@ -327,7 +337,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                             navigate("/ho-so-ca-nhan");
                             setIsUserDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           Hồ sơ cá nhân
                         </button>
@@ -337,7 +347,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                             navigate("/quan-ly-diem");
                             setIsUserDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           Điểm
                         </button>
@@ -347,29 +357,27 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                             navigate("/cua-hang");
                             setIsUserDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           Cửa hàng
                         </button>
 
-                        {user?.role === "admin" && (
-                          <button
-                            onClick={() => {
-                              navigate("/admin");
-                              setIsUserDropdownOpen(false);
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            Quản trị hệ thống
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            navigate("/quan-tri/noi-dung-cho-duyet");
+                            setIsUserDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+                          Công cụ quản lý
+                        </button>
 
                         <button
                           onClick={() => {
                             navigate("/cai-dat");
                             setIsUserDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800">
                           Cài đặt
                         </button>
 
@@ -378,7 +386,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                             logout();
                             setIsUserDropdownOpen(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           Đăng xuất
                         </button>

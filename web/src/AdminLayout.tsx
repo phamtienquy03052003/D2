@@ -11,7 +11,7 @@ const AdminLayout: React.FC<Props> = ({ children, activeMenuItem = "dashboard" }
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     return (
-        <div className="min-h-screen flex flex-col bg-gray-100">
+        <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-[#0f1117]">
             <AdminHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
             <div className="flex flex-1">

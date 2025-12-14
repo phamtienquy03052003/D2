@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from "react";
 import AdminLayout from "../../AdminLayout";
 import { adminService } from "../../services/adminService";
-import { Search, Lock, Unlock, Eye } from "lucide-react";
-import toast from "react-hot-toast";
+import { Lock, Unlock, Eye, TrendingUp } from "lucide-react";
+
 import AdminUserDetailModal from "../../components/admin/AdminUserDetailModal";
-import { getUserAvatarUrl } from "../../utils/userUtils";
+import ConfirmModal from "../../components/user/ConfirmModal";
+
+
+import UserAvatar from "../../components/common/UserAvatar";
+import UserName from "../../components/common/UserName";
+import DataTable from "../../components/admin/DataTable";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
@@ -13,206 +19,356 @@ const UserManagement: React.FC = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [search, setSearch] = useState("");
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [viewMode, setViewMode] = useState<"list" | "analytics">("list");
+    const [stats, setStats] = useState<any>(null);
+
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+    });
+
+    
+    const [roleFilter, setRoleFilter] = useState("all");
+    const [statusFilter, setStatusFilter] = useState("all"); 
+    const [sortBy, setSortBy] = useState("createdAt");
+    const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const res = await adminService.getUsers(page, 10, search);
+            const res = await adminService.getUsers(page, 10, search, roleFilter, statusFilter, sortBy, sortOrder);
             if (res.success) {
                 setUsers(res.data);
                 setTotalPages(res.totalPages);
             }
         } catch (error) {
-            toast.error("Lỗi khi tải danh sách người dùng");
+            console.error("Lỗi khi tải danh sách người dùng", error);
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            fetchUsers();
-        }, 500);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [page, search]);
-
-    const handleStatusChange = async (id: string, currentStatus: boolean) => {
-        if (!window.confirm(`Bạn có chắc muốn ${currentStatus ? "khóa" : "mở khóa"} người dùng này?`)) return;
+    const fetchStats = async () => {
         try {
-            const res = await adminService.updateUserStatus(id, !currentStatus);
+            const res = await adminService.getUserStats("30d");
             if (res.success) {
-                toast.success("Cập nhật trạng thái thành công");
-                fetchUsers();
+                setStats(res.data);
             }
         } catch (error) {
-            toast.error("Lỗi khi cập nhật trạng thái");
+            console.error("Lỗi khi tải thống kê người dùng", error);
         }
     };
 
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            if (viewMode === "list") {
+                fetchUsers();
+            } else {
+                fetchStats();
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [page, search, viewMode, roleFilter, statusFilter, sortBy, sortOrder]);
+
+    const handleSort = (key: string) => {
+        if (sortBy === key) {
+            setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+        } else {
+            setSortBy(key);
+            setSortOrder("desc"); 
+        }
+    };
+
+    const handleStatusChange = async (id: string, currentStatus: boolean) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Xác nhận thay đổi trạng thái",
+            message: `Bạn có chắc muốn ${currentStatus ? "khóa" : "mở khóa"} người dùng này?`,
+            onConfirm: async () => {
+                try {
+                    const res = await adminService.updateUserStatus(id, !currentStatus);
+                    if (res.success) {
+                        fetchUsers();
+                    }
+                } catch (error) {
+                    console.error("Lỗi khi cập nhật trạng thái", error);
+                }
+                setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+            },
+        });
+    };
+
+    const handleBulkAction = async (action: "lock" | "unlock" | "delete") => {
+        if (selectedIds.length === 0) return;
+
+        setConfirmModal({
+            isOpen: true,
+            title: "Xác nhận hành động hàng loạt",
+            message: `Bạn có chắc muốn thực hiện hành động này với ${selectedIds.length} người dùng?`,
+            onConfirm: async () => {
+                try {
+                    console.log(`Đã thực hiện hành động ${action} với ${selectedIds.length} người dùng (Demo)`);
+                    setSelectedIds([]);
+                } catch (error) {
+                    console.error("Lỗi khi thực hiện hành động hàng loạt", error);
+                }
+                setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+            },
+        });
+    };
+
+    const columns = [
+        {
+            key: "user",
+            header: "Người dùng",
+            render: (user: any) => (
+                <div className="flex items-center">
+                    <UserAvatar user={user} size="h-10 w-10" />
+                    <div className="ml-4">
+                        <UserName user={user} className="text-sm text-gray-900 dark:text-gray-100" />
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: "email",
+            header: "Email",
+            render: (user: any) => <div className="text-sm text-gray-900 dark:text-gray-200">{user.email}</div>,
+        },
+        {
+            key: "role",
+            header: "Vai trò",
+            sortable: true,
+            render: (user: any) => (
+                <span
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === "admin"
+                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                        : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        }`}
+                >
+                    {user.role}
+                </span>
+            ),
+        },
+        {
+            key: "createdAt",
+            header: "Ngày tham gia",
+            sortable: true,
+            render: (user: any) => (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {new Date(user.createdAt).toLocaleDateString("vi-VN")}
+                </span>
+            ),
+        },
+        {
+            key: "isActive",
+            header: "Trạng thái",
+            sortable: true,
+            render: (user: any) => (
+                <span
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isActive
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        }`}
+                >
+                    {user.isActive ? "Hoạt động" : "Đã khóa"}
+                </span>
+            ),
+        },
+    ];
+
+    const actions = [
+        {
+            label: "Xem chi tiết",
+            icon: <Eye className="w-5 h-5" />,
+            onClick: (user: any) => setSelectedUser(user),
+            className: "text-blue-600 hover:text-blue-900",
+        },
+        {
+            label: "Khóa/Mở khóa",
+            icon: (user: any) => {
+                if (user.role === "admin") return null;
+                return user.isActive ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />;
+            },
+            onClick: (user: any) => handleStatusChange(user._id, user.isActive),
+            className: "text-indigo-600 hover:text-indigo-900",
+        },
+    ];
 
     return (
         <AdminLayout activeMenuItem="users">
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Quản lý người dùng</h1>
-                    <p className="text-gray-600">Xem và quản lý tài khoản thành viên</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Quản lý người dùng</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Xem và quản lý tài khoản thành viên</p>
                 </div>
-                <div className="relative w-full sm:w-64">
-                    <input
-                        type="text"
-                        placeholder="Tìm kiếm..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <Search className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
+
+                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                    <button
+                        onClick={() => setViewMode("list")}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === "list" ? "bg-white dark:bg-[#1a1d25] text-blue-600 dark:text-blue-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                    >
+                        Danh sách
+                    </button>
+                    <button
+                        onClick={() => setViewMode("analytics")}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === "analytics" ? "bg-white dark:bg-[#1a1d25] text-blue-600 dark:text-blue-400 shadow-sm" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"}`}
+                    >
+                        Thống kê
+                    </button>
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Người dùng
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Email
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Vai trò
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Trạng thái
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Hành động
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-4 text-center">
-                                        Đang tải...
-                                    </td>
-                                </tr>
-                            ) : users.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                                        Không tìm thấy người dùng nào
-                                    </td>
-                                </tr>
-                            ) : (
-                                users.map((user) => (
-                                    <tr key={user._id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <img
-                                                    className="h-10 w-10 rounded-full object-cover"
-                                                    src={getUserAvatarUrl(user)}
-                                                    alt=""
-                                                />
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {user.name}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm text-gray-900">{user.email}</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span
-                                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === "admin"
-                                                    ? "bg-purple-100 text-purple-800"
-                                                    : "bg-green-100 text-green-800"
-                                                    }`}
-                                            >
-                                                {user.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span
-                                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isActive
-                                                    ? "bg-blue-100 text-blue-800"
-                                                    : "bg-red-100 text-red-800"
-                                                    }`}
-                                            >
-                                                {user.isActive ? "Hoạt động" : "Đã khóa"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => setSelectedUser(user)}
-                                                className="text-blue-600 hover:text-blue-900 mr-4"
-                                                title="Xem chi tiết"
-                                            >
-                                                <Eye className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleStatusChange(user._id, user.isActive)}
-                                                className="text-indigo-600 hover:text-indigo-900 mr-4"
-                                                title={user.isActive ? "Khóa tài khoản" : "Mở khóa"}
-                                            >
-                                                {user.isActive ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+            {viewMode === "analytics" ? (
+                <div className="space-y-6">
+                    {stats && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white dark:bg-[#1a1d25] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tổng người dùng</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalUsers}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center text-sm text-green-600 dark:text-green-400">
+                                        <TrendingUp className="w-4 h-4 mr-1" />
+                                        <span>+{stats.newUsers} trong 30 ngày qua</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#1a1d25] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Đang hoạt động</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activePercent}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center text-sm text-gray-500 dark:text-gray-400">
+                                        <span>{stats.activeUsers} tài khoản active</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#1a1d25] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tăng trưởng</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.growthPercent}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex items-center text-sm text-green-600 dark:text-green-400">
+                                        <span>So với tháng trước</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white dark:bg-[#1a1d25] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-6">Tăng trưởng người dùng mới</h3>
+                                <div className="h-80">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart
+                                            data={stats.growthChart}
+                                            margin={{
+                                                top: 5,
+                                                right: 30,
+                                                left: 20,
+                                                bottom: 5,
+                                            }}
+                                        >
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                            <XAxis dataKey="_id" stroke="#9ca3af" />
+                                            <YAxis stroke="#9ca3af" />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    backgroundColor: "#1f2937",
+                                                    borderColor: "#374151",
+                                                    color: "#f3f4f6",
+                                                    borderRadius: "8px",
+                                                }}
+                                                itemStyle={{ color: "#f3f4f6" }}
+                                                cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }}
+                                            />
+                                            <Legend wrapperStyle={{ color: "#9ca3af" }} />
+                                            <Bar dataKey="count" name="Người dùng mới" fill="#3b82f6" maxBarSize={60} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            ) : (
+                <DataTable
+                    data={users}
+                    columns={columns}
+                    actions={actions}
+                    loading={loading}
+                    pagination={{
+                        page,
+                        totalPages,
+                        onPageChange: setPage,
+                    }}
+                    selection={{
+                        selectedIds,
+                        onSelectionChange: setSelectedIds,
+                        keyField: "_id",
+                    }}
+                    search={{
+                        value: search,
+                        onChange: setSearch,
+                        placeholder: "Tìm kiếm người dùng...",
+                    }}
+                    filters={
+                        <div className="flex items-center gap-2">
+                            {selectedIds.length > 0 && (
+                                <>
+                                    <span className="text-sm text-gray-500">{selectedIds.length} đã chọn</span>
+                                    <button
+                                        onClick={() => handleBulkAction("lock")}
+                                        className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200"
+                                    >
+                                        Khóa
+                                    </button>
+                                    <button
+                                        onClick={() => handleBulkAction("unlock")}
+                                        className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200"
+                                    >
+                                        Mở khóa
+                                    </button>
+                                </>
                             )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                    <div className="flex-1 flex justify-between sm:hidden">
-                        <button
-                            onClick={() => setPage(Math.max(1, page - 1))}
-                            disabled={page === 1}
-                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                        >
-                            Trước
-                        </button>
-                        <button
-                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                            disabled={page === totalPages}
-                            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                        >
-                            Sau
-                        </button>
-                    </div>
-                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Trang <span className="font-medium">{page}</span> / <span className="font-medium">{totalPages}</span>
-                            </p>
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => setRoleFilter(e.target.value)}
+                                className="block w-full min-w-[120px] pl-3 pr-8 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1d25] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                            >
+                                <option value="all">Tất cả vai trò</option>
+                                <option value="admin">Quản trị viên</option>
+                                <option value="user">Người dùng</option>
+                            </select>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="block w-full min-w-[120px] pl-3 pr-8 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-[#1a1d25] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                            >
+                                <option value="all">Tất cả trạng thái</option>
+                                <option value="true">Hoạt động</option>
+                                <option value="false">Đã khóa</option>
+                            </select>
                         </div>
-                        <div>
-                            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                <button
-                                    onClick={() => setPage(Math.max(1, page - 1))}
-                                    disabled={page === 1}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                    Trước
-                                </button>
-                                <button
-                                    onClick={() => setPage(Math.min(totalPages, page + 1))}
-                                    disabled={page === totalPages}
-                                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                                >
-                                    Sau
-                                </button>
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                    }
+                    onSort={handleSort}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                />
+            )}
 
             {selectedUser && (
                 <AdminUserDetailModal
@@ -222,6 +378,15 @@ const UserManagement: React.FC = () => {
                         fetchUsers();
                         setSelectedUser(null);
                     }}
+                />
+            )}
+
+            {confirmModal.isOpen && (
+                <ConfirmModal
+                    title={confirmModal.title}
+                    message={confirmModal.message}
+                    onConfirm={confirmModal.onConfirm}
+                    onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
                 />
             )}
         </AdminLayout>

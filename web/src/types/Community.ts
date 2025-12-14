@@ -3,6 +3,7 @@ import type { User } from "./User";
 export interface Community {
   _id: string;
   name: string;
+  slug?: string;
   description?: string;
   avatar?: string;
 
@@ -28,7 +29,7 @@ export interface Community {
   createdAt: string;
   updatedAt: string;
 
-  // Trường tính toán frontend
+  
   membersCount?: number;
   isCreator?: boolean;
   isMember?: boolean;
