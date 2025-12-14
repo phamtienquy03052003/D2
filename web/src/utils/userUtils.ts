@@ -12,6 +12,13 @@ export function getUserDisplayName(user: User): string {
 
 export function getUserAvatarUrl(user?: UserInfo | null): string {
   if (!user?.avatar) return `${BASE_URL}/uploads/avatars/user_avatar_default.png`;
+
+  // Handle legacy localhost URLs saved in DB
+  if (user.avatar.includes("localhost:8000")) {
+    const relativePath = user.avatar.split("localhost:8000")[1];
+    return `${BASE_URL}${relativePath}`;
+  }
+
   if (user.avatar.startsWith("http")) return user.avatar;
   return `${BASE_URL}${user.avatar}`;
 }
@@ -19,6 +26,13 @@ export function getUserAvatarUrl(user?: UserInfo | null): string {
 
 export function getUserInfoAvatarUrl(user?: UserInfo | null): string {
   if (!user?.avatar) return `${BASE_URL}/uploads/avatars/user_avatar_default.png`;
+
+  // Handle legacy localhost URLs saved in DB
+  if (user.avatar.includes("localhost:8000")) {
+    const relativePath = user.avatar.split("localhost:8000")[1];
+    return `${BASE_URL}${relativePath}`;
+  }
+
   if (user.avatar.startsWith("http")) return user.avatar;
   return `${BASE_URL}${user.avatar}`;
 }

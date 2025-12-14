@@ -19,6 +19,13 @@ export function getUserVote(post: Post, userId: string): "up" | "down" | null {
 export function getAuthorAvatar(post: Post): string {
   const avatar = post.author.avatar;
   if (!avatar) return `${BASE_URL || ""}/uploads/avatars/user_avatar_default.png`;
+
+  // Handle legacy localhost URLs saved in DB
+  if (avatar.includes("localhost:8000")) {
+    const relativePath = avatar.split("localhost:8000")[1];
+    return `${BASE_URL || ""}${relativePath}`;
+  }
+
   if (avatar.startsWith("http")) return avatar;
   return `${BASE_URL || ""}${avatar}`;
 }
@@ -35,6 +42,12 @@ export function hasImage(post: Post): boolean {
 
 export function getPostImageUrl(url: string): string {
   if (!url) return "";
+
+  if (url.includes("localhost:8000")) {
+    const relativePath = url.split("localhost:8000")[1];
+    return `${BASE_URL || ""}${relativePath}`;
+  }
+
   if (url.startsWith("http") || url.startsWith("blob:")) return url;
   return `${BASE_URL || ""}${url}`;
 }

@@ -45,6 +45,13 @@ export function isPending(community: Community, userId: string): boolean {
 
 export function getCommunityAvatarUrl(community?: Community | null): string {
   if (!community?.avatar) return `${BASE_URL || ""}/uploads/communityAvatars/community_avatar_default.png`;
+
+  if (community.avatar.includes("localhost:8000")) {
+    const relativePath = community.avatar.split("localhost:8000")[1];
+    const version = community.updatedAt ? new Date(community.updatedAt).getTime() : 1;
+    return `${BASE_URL || ""}${relativePath}?t=${version}`;
+  }
+
   if (community.avatar.startsWith("http")) return community.avatar;
 
 
