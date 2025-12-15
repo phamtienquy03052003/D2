@@ -343,7 +343,7 @@ const ModStatsPage: React.FC = () => {
                                                     }`}
                                                 onClick={() => setActiveTab("unique")}
                                             >
-                                                Khách truy cập duy nhất
+                                                Lương truy cập
                                             </button>
                                             <button
                                                 className={`px-1 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center justify-center text-center h-full ${activeTab === "members"
