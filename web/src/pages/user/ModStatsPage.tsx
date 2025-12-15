@@ -320,7 +320,7 @@ const ModStatsPage: React.FC = () => {
                                 <>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                         {renderStatCard("Lượt xem", stats.views)}
-                                        {renderStatCard("Khách truy cập", stats.uniqueVisitors)}
+                                        {renderStatCard("Lượt truy cập", stats.uniqueVisitors)}
                                         {renderStatCard("Thành viên", stats.members)}
                                         {renderStatCard("Bài đăng", stats.posts)}
                                     </div>
@@ -343,7 +343,7 @@ const ModStatsPage: React.FC = () => {
                                                     }`}
                                                 onClick={() => setActiveTab("unique")}
                                             >
-                                                Lương truy cập
+                                                Lượt truy cập
                                             </button>
                                             <button
                                                 className={`px-1 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center justify-center text-center h-full ${activeTab === "members"
