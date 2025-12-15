@@ -577,8 +577,8 @@ const ModQueuePage: React.FC = () => {
                       </div>
 
                       {!hasMemberApprovalCommunities ? (
-                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300">
-                          <p className="text-gray-500">Chưa có cộng đồng nào bật chế độ xét duyệt thành viên.</p>
+                        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+                          <p className="text-gray-500 dark:text-gray-400">Chưa có cộng đồng nào bật chế độ xét duyệt thành viên.</p>
                         </div>
                       ) : (
                         <>
